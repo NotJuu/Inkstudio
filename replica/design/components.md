@@ -1,6 +1,19 @@
 # Inkstudio components
 
-Specs for every repeated UI part in `replica/recon.md` §5. Tokens are in `tokens.json`, generated into `crates/ink-ui/src/theme/tokens.rs`, and the code is in `crates/ink-ui/src/widgets/`. `gallery-dark.png` and `gallery-light.png` show all the primitives built so far.
+Specs for every repeated UI part in `replica/recon.md` §5. Tokens are in `tokens.json`, generated into `crates/ink-ui/src/theme/tokens.rs`, and the code is in `crates/ink-ui/src/widgets/`. `gallery-*.png` shows every primitive, and `workspace-*.png` shows them assembled into the main workspace.
+
+## Look and feel
+
+Inkstudio should feel like a **real professional drawing program**, in the same family as Krita and Clip Studio Paint. `workspace-dark.png` / `workspace-light.png` show the target: the main workspace (S03), built only from these primitives.
+
+What we take from the genre (conventions every pro paint app shares, not anyone's trade dress):
+- **Neutral greys with no hue.** Panels sit between `#222` and `#464646`, so the UI never tints how you judge color. The canvas surround is a mid grey.
+- **Dense docking.** A menu bar, a tool-options bar for the active tool, a single tool column, docked palettes on both sides (sub tools and tool properties on the left; color, navigator and layers on the right) and a status bar. Every palette has a slim title strip with a ⋯ menu.
+- **Dark 1px separators** between panels instead of light outlines or cards.
+- **Near-square corners** (2–3px), small 12px type and 24px rows.
+- **The canvas is the hero.** The page sits on the grey surround with a shadow, trim/bleed/safe-area guides and crop marks. Everything else is quiet.
+
+What stays Inkstudio's own: every color value, the Phosphor icons, the labels, the exact proportions, and the accent color (still a placeholder until replica-brand). Nothing is copied from Krita (GPL) or Clip Studio Paint, not even screenshots. The resemblance comes only from the shared conventions above.
 
 ## How this was made
 
@@ -13,12 +26,13 @@ Specs for every repeated UI part in `replica/recon.md` §5. Tokens are in `token
 
 | group | values |
 | --- | --- |
-| Greys (dark) | bg `#1C1D20`, surface `#25262A`, raised `#2E2F34`, sunken `#17181A`, hover `#33353B`, active `#3B3D44`, track `#3A3C42`. That's 7 steps, plus borders |
-| Canvas surround | dark `#3C3C3C`, light `#C2C2C2`. Neutral grey, so it doesn't bias color judgement |
+| Greys (dark) | bg `#222222`, surface `#2C2C2C`, raised `#363636`, sunken `#1C1C1C`, hover `#3A3A3A`, active `#464646`, track `#4A4A4A`; separators `#161616`. Neutral, no hue |
+| Greys (light) | bg `#C6C6C6`, surface `#DADADA`, raised `#EAEAEA`, sunken `#F6F6F6`; separators `#A6A6A6` |
+| Canvas surround | dark `#484848`, light `#A8A8A8`. Mid grey, so it doesn't bias color judgement |
 | Type | 11 / 12 / 13 / 15 / 20 / 28 px. Body is **12px**, typical for dense pro tools. Weights 400 / 500 / 600 |
 | Space | 0, 2, 4, 6, 8, 12, 16, 24, 32 (4px base, 2px half-step) |
 | Controls | 20 / 24 / 28 / 32 px high; icons 14 / 16 / 20 |
-| Radius | 2 / 4 / 6 |
+| Radius | 2 / 2 / 3 (near-square, pro-tool style) |
 | Shadow | popup (0 4 12 35%), floating (0 8 24 45%) |
 | Motion | 80 ms / 140 ms; 0 when the OS asks for reduced motion |
 | Layout | menu bar 24, command bar 32, status bar 22, tool column 40, palette 260 (180–480), layer row 40 with 32px thumbnail, list row 24, timeline cell 16×22, handle 8 (+4 hit slop) |
@@ -27,7 +41,7 @@ Specs for every repeated UI part in `replica/recon.md` §5. Tokens are in `token
 
 `tools/contrast.py` checks 68 text/background pairs (34 roles in 2 themes): **0 failures**. The full table is in `contrast-report.md`. Thresholds are 4.5:1 for body text, and 3:1 for large text, input borders, focus rings and indicators.
 
-Fixes made in the tokens while checking:
+Fixes made in the tokens while checking (the second round came after switching to neutral greys: dark `text-muted`, `border-input` and `overlay-ruler` were lightened):
 - dark `accent` darkened (white text was 4.49:1);
 - dark `accent-hover` changed to go darker on hover instead of lighter;
 - dark `border-input` lightened (was 2.82:1 on raised surfaces);
@@ -150,8 +164,16 @@ ColorSwatch / ColorPair                                             built
 ```
 
 ```
-Color wheel / sliders                                               shell (M2)
-  parts     HSV ring + SV square, RGB/HSV sliders (SliderField), hex field
+ColorWheel                                                          built
+  parts     HSV hue ring + saturation/value square, dual-ring markers (visible on any color)
+  keyboard  ←/→ hue, ↑/↓ value, Shift+↑/↓ saturation
+  a11y      "Color wheel, hue 223°, saturation 35%, value 12%, #141720"
+  used on   S06
+```
+
+```
+Color sliders / hex field                                           shell (M2)
+  parts     RGB/HSV sliders (SliderField), hex field
   a11y      each channel is a slider with a numeric value; the wheel is pointer-only, with the sliders as the keyboard path
   used on   S06
 ```
@@ -242,7 +264,7 @@ Brush cursor                                                        shell (M2)
 | --- | --- |
 | `python3 -I replica/design/tools/gen_theme.py` | regenerate `tokens.rs` after editing `tokens.json` (`--check` for CI) |
 | `python3 -I replica/design/tools/contrast.py --md replica/design/contrast-report.md` | WCAG check of every pair; exits 1 on failure |
-| `cargo run --release -p ink-ui --example design_gallery -- replica/design 2` | render `gallery-dark.png` / `gallery-light.png` on the CPU (no GPU needed) |
+| `cargo run --release -p ink-ui --example design_gallery -- replica/design 2` | render `gallery-*.png` and `workspace-*.png` on the CPU (no GPU needed) |
 
 ## Not done yet
 

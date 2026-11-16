@@ -22,15 +22,29 @@ fn main() {
         let img = headless::screenshot(&ctx, size, scale, p.bg, |ui| {
             egui::Frame::new().fill(p.bg).inner_margin(24).show(ui, |ui| gallery::show(ui, &mut state));
         });
+        // Workspace preview (S03).
+        let ws_ctx = egui::Context::default();
+        theme::apply(&ws_ctx, mode);
+        let mut ws = ink_ui::preview::WorkspaceState::default();
+        let ws_img = headless::screenshot(&ws_ctx, egui::vec2(1600.0, 960.0), scale, p.bg, |ui| ink_ui::preview::show(ui, &mut ws));
+        let ws_name = match mode {
+            theme::Mode::Dark => "workspace-dark.png",
+            theme::Mode::Light => "workspace-light.png",
+        };
+        write_png(&out_dir.join(ws_name), &ws_img);
+
         let name = match mode {
             theme::Mode::Dark => "gallery-dark.png",
             theme::Mode::Light => "gallery-light.png",
         };
-        let path = out_dir.join(name);
-        let mut enc = png::Encoder::new(BufWriter::new(File::create(&path).expect("create png")), img.width as u32, img.height as u32);
-        enc.set_color(png::ColorType::Rgba);
-        enc.set_depth(png::BitDepth::Eight);
-        enc.write_header().unwrap().write_image_data(&img.rgba).unwrap();
-        println!("wrote {} ({}x{})", path.display(), img.width, img.height);
+        write_png(&out_dir.join(name), &img);
     }
+}
+
+fn write_png(path: &std::path::Path, img: &headless::Image) {
+    let mut enc = png::Encoder::new(BufWriter::new(File::create(path).expect("create png")), img.width as u32, img.height as u32);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    enc.write_header().unwrap().write_image_data(&img.rgba).unwrap();
+    println!("wrote {} ({}x{})", path.display(), img.width, img.height);
 }

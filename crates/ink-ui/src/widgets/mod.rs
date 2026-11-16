@@ -9,6 +9,7 @@
 //!   icon-only widgets require a label, which is also their tooltip.
 
 mod button;
+mod color_wheel;
 mod feedback;
 mod field;
 mod overlay;
@@ -19,6 +20,7 @@ mod tabs;
 mod timeline;
 
 pub use button::{Button, ButtonSize, ButtonVariant, IconButton};
+pub use color_wheel::{color_wheel, Hsv};
 pub use feedback::{progress_bar, toast, ToastKind};
 pub use field::{slider_field, unit_field, Unit};
 pub use overlay::{dual_stroke_line, handle};
