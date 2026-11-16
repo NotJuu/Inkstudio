@@ -12,50 +12,50 @@ Autosave and crash recovery,file,must,yes,no,S29
 PNG/JPG export,file,must,yes,no,
 PSD import/export with layers,file,should,yes,no,
 PDF export (multi-page),file,should,yes,no,EX: export multiple pages
-1-bit monochrome export for print,file,must,yes,no,manga print output
+1-bit monochrome export for print,file,must,yes,engine,manga print output
 Canvas pan/zoom/rotate/flip,canvas,must,yes,no,S09 navigator
 Navigator palette,canvas,should,yes,no,S09
 Multiple canvas views of one file,canvas,could,yes,no,
-Pen/brush engine with dab tips,brush,must,yes,no,
-Pressure curves for size/opacity/density,brush,must,yes,no,
-Stroke stabilization,brush,must,yes,no,
-Post-correction line smoothing,brush,should,yes,no,
+Pen/brush engine with dab tips,brush,must,yes,engine,
+Pressure curves for size/opacity/density,brush,must,yes,engine,
+Stroke stabilization,brush,must,yes,engine,
+Post-correction line smoothing,brush,should,yes,engine,
 Velocity-based brush dynamics,brush,could,yes,no,4.1 added velocity graph
-Pencil / G-pen / mapping pen style presets,brush,must,yes,no,own original presets
-Airbrush and soft brushes,brush,must,yes,no,
+Pencil / G-pen / mapping pen style presets,brush,must,yes,engine,own original presets
+Airbrush and soft brushes,brush,must,yes,engine,
 Watercolor/color-mixing brushes,brush,could,yes,no,
-Eraser (raster),brush,must,yes,no,
+Eraser (raster),brush,must,yes,engine,
 Custom sub tools (duplicate/edit/save presets),brush,must,yes,no,S04/S05
 Brush import/export in own format,brush,could,yes,no,
-Raster layers,layers,must,yes,no,
+Raster layers,layers,must,yes,engine,
 Layer folders,layers,must,yes,no,
-Blend modes,layers,must,yes,no,
-Clip to layer below,layers,must,yes,no,
+Blend modes,layers,must,yes,engine,
+Clip to layer below,layers,must,yes,engine,
 Layer masks,layers,must,yes,no,
-Layer lock (all/alpha),layers,must,yes,no,
-Reference layer (for fill/select),layers,must,yes,no,core to manga flatting
-Draft layer (excluded from export),layers,should,yes,no,
+Layer lock (all/alpha),layers,must,yes,engine,
+Reference layer (for fill/select),layers,must,yes,engine,core to manga flatting
+Draft layer (excluded from export),layers,should,yes,engine,
 Expression color per layer (color/gray/mono),layers,should,yes,no,
 Layer color (tint lines blue),layers,should,yes,no,
 Border effect (outline) layer property,layers,could,yes,no,
 Fill/gradient layers,layers,should,yes,no,
 Correction layers (levels/curves/HSL),layers,should,yes,no,
 Paper layer,layers,should,yes,no,
-Vector layers,vector,must,yes,no,core for manga inking
-Vector eraser (erase up to intersection),vector,must,yes,no,
+Vector layers,vector,must,yes,engine,core for manga inking
+Vector eraser (erase up to intersection),vector,must,yes,engine,
 Vector control point editing,vector,should,yes,no,
-Line width correction on vectors,vector,could,yes,no,
+Line width correction on vectors,vector,could,yes,engine,
 Selection tools (rect/ellipse/lasso/polyline),select,must,yes,no,
 Auto select (magic wand) with reference layer,select,must,yes,no,
 Selection launcher floating bar,select,should,yes,no,S10
 Quick mask / selection layer,select,could,yes,no,
-Fill bucket with close-gap and refer to other layers,fill,must,yes,no,
+Fill bucket with close-gap and refer to other layers,fill,must,yes,engine,
 Gradient tool,fill,should,yes,no,
 Transform (scale/rotate/skew/distort),transform,must,yes,no,S11
 Mesh transform,transform,should,yes,no,
 Puppet warp,transform,could,yes,no,Ver 4.0 headline feature
 Liquify,transform,could,yes,no,
-Undo/redo with history palette,edit,must,yes,no,
+Undo/redo with history palette,edit,must,yes,engine,tile-pointer undo; history palette UI pending
 Color wheel and sliders (HSV/RGB),color,must,yes,no,S06
 Color sets,color,should,yes,no,
 Color history,color,should,yes,no,
@@ -63,24 +63,24 @@ Eyedropper,color,must,yes,no,
 CMYK preview / color management,color,could,yes,no,
 Filters: blur/sharpen/noise,filters,should,yes,no,S16
 Convert photo to lines and tones,filters,could,yes,no,EX only; manga backgrounds
-Straight/curve/figure rulers,rulers,must,yes,no,
-Perspective ruler (1/2/3 point),rulers,must,yes,no,
-Symmetry ruler (N lines / rotation),rulers,should,yes,no,
-Concentric circle ruler,rulers,could,yes,no,
-Special rulers: parallel lines / focus lines,rulers,must,yes,no,speed and focus lines
+Straight/curve/figure rulers,rulers,must,yes,partial,straight ruler done; curve/figure next
+Perspective ruler (1/2/3 point),rulers,must,yes,engine,
+Symmetry ruler (N lines / rotation),rulers,should,yes,engine,
+Concentric circle ruler,rulers,could,yes,engine,
+Special rulers: parallel lines / focus lines,rulers,must,yes,engine,speed and focus lines
 Guides and grid,rulers,should,yes,no,
-Snap to ruler toggle,rulers,must,yes,no,
+Snap to ruler toggle,rulers,must,yes,engine,
 Comic page setup: trim size / bleed / inner border,manga,must,yes,no,S20
 Change work settings after creation,manga,must,yes,no,S20
 Frame border tool (rectangle/polyline),manga,must,yes,no,S12
 Divide frame border / frame folder,manga,must,yes,no,
 Frame folder masks contents,manga,must,yes,no,
 Bleed panels past the trim,manga,should,yes,no,
-Screentone layers from selection (LPI/density/shape/angle),manga,must,yes,no,S14
+Screentone layers from selection (LPI/density/shape/angle),manga,must,yes,engine,S14
 Gradient tones,manga,should,yes,no,
 Tone moire-free display at any zoom,manga,must,yes,no,hard part
 Original tone material library,manga,must,no,no,ship our own; CSP materials skip
-Speed lines / focus lines tools,manga,should,yes,no,
+Speed lines / focus lines tools,manga,should,yes,engine,
 Text tool (horizontal),text,must,yes,no,
 Vertical text (Japanese),text,must,yes,no,IME + vertical layout
 Balloons (ellipse/rect/curve/flash),text,must,yes,no,S13
@@ -112,9 +112,9 @@ Quick access palette,ui,could,yes,no,
 Dark and light UI themes,ui,should,yes,no,
 Preferences (pressure calibration/cursor/performance),ui,must,yes,no,S26
 Material palette for own assets,ui,should,yes,no,S25
-Clip Studio Assets marketplace,skip,skip,yes,no,owned by Celsys and creators
+Clip Studio Assets marketplace,skip,skip,yes,no,owned by Celsys; Inkstudio gets its own pack import/export instead
 Bundled CSP materials/brushes/tones,skip,skip,yes,no,licensed content
-3D drawing figures and models,skip,skip,yes,no,licensed assets + 3D engine; out of slice
+Bundled CSP 3D models,skip,skip,yes,no,Celsys assets; Inkstudio ships its own mannequin instead
 .clip / .cmc file compatibility,skip,skip,yes,no,proprietary format
 Cloud sync and account,skip,skip,yes,no,Celsys service
 Community (Ask/Tips) and creative-hours chart,skip,skip,yes,no,Celsys service
@@ -123,3 +123,7 @@ Bundled fonts,skip,skip,yes,no,use system + open fonts
 Smartphone companion mode,skip,skip,yes,no,
 CSP branding/icons/UI art,skip,skip,yes,no,draw originals
 Edition limits (24-frame PRO cap),skip,skip,yes,no,business rule
+3D posable mannequin as drawing reference (own model),reference,should,yes,no,"CSP highlight; original low-poly figure + camera, rendered as a reference layer"
+3D perspective match (ruler from 3D camera),reference,could,yes,no,
+"Material pack import/export (brushes, tones, templates)",library,should,yes,no,CSP highlight: community sharing via files
+Performance budget: <1 ms per pen sample on 600 dpi B4,platform,must,yes,engine,0.06-0.12 ms measured (showcase)

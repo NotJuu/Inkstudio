@@ -1,0 +1,13 @@
+[package]
+name = "ink-raster"
+description = "Inkstudio pixel engine: brushes, stabilizer, fill, screentones"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+ink-core.workspace = true
+rayon.workspace = true
+
+[dev-dependencies]
+png.workspace = true

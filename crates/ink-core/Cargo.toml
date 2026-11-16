@@ -1,0 +1,9 @@
+[package]
+name = "ink-core"
+description = "Inkstudio document model: copy-on-write tiles, layers, compositing, undo"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+rayon.workspace = true
