@@ -977,6 +977,123 @@ fn main() {
     }
     ha.idle(12);
     ha.snap(&out.join("22-animation-timeline.png"));
+
+    // 16. Import a picture, transform it, adjust its colors and opacity.
+    let pic = work.join("photo.png");
+    {
+        let (w, h) = (600u32, 400u32);
+        let mut img = image::RgbaImage::new(w, h);
+        for (x, y, px) in img.enumerate_pixels_mut() {
+            let (dx, dy) = (x as f32 - 300.0, y as f32 - 200.0);
+            let r = (dx * dx + dy * dy).sqrt();
+            *px = if r < 170.0 {
+                image::Rgba([230, (120.0 + r * 0.5) as u8, 60, 255])
+            } else {
+                image::Rgba([90, 150, (200.0 - y as f32 * 0.2) as u8, 255])
+            };
+        }
+        img.save(&pic).unwrap();
+    }
+    let mut hi = Harness::new(&config);
+    hi.idle(2);
+    hi.app.open(SheetSettings {
+        name: "reference".into(),
+        kind: SheetKind::Illustration,
+        dpi: 100,
+        template: None,
+        color_mode: inkstudio::book::ColorMode::Color,
+        ..Default::default()
+    });
+    hi.idle(6);
+    hi.app.import_image_file(&pic, None, hi.t);
+    hi.idle(4);
+    assert_eq!(hi.app.tool, Tool::Transform);
+    let t = hi
+        .app
+        .transform
+        .as_ref()
+        .expect("import starts a transform");
+    let before = t.place;
+    let c = t.corners();
+    // Drag the bottom-right corner outwards and rotate with the knob area outside the box.
+    let (a, b) = (c[2], inkstudio_pt(c[2].x + 60.0, c[2].y + 40.0));
+    hi.pen(&line((a.x, a.y), (b.x, b.y), 8), |_| 1.0);
+    let after = hi.app.transform.as_ref().unwrap().place;
+    assert!(
+        after.sx > before.sx * 1.05,
+        "corner drag scales: {} → {}",
+        before.sx,
+        after.sx
+    );
+    assert!((after.sx - after.sy).abs() < 1e-4, "keeps proportions");
+    let cc = after.center;
+    hi.pen(&circle(cc.x, cc.y, 480.0, -0.2, 0.15, 10), |_| 1.0);
+    assert!(
+        hi.app.transform.as_ref().unwrap().place.angle.abs() > 0.1,
+        "dragging outside rotates"
+    );
+    hi.idle(8);
+    hi.snap(&out.join("23-image-transform.png"));
+    hi.key(Key::Enter);
+    hi.idle(4);
+    assert!(hi.app.transform.is_none(), "Enter applies");
+    let img_layer = hi.app.active_layer.unwrap();
+    {
+        let p = hi.app.book.as_ref().unwrap().page();
+        let l = p.doc.layer(img_layer).unwrap();
+        assert_eq!(l.props.name, "photo");
+        assert_eq!(
+            l.raster.get(cc.x as i32, cc.y as i32).a(),
+            255,
+            "picture baked into the layer"
+        );
+    }
+    // Colors: hue shift + saturation, live preview, OK = one undo step.
+    hi.app.open_adjust(hi.t);
+    {
+        let d = hi.app.adjust.as_mut().unwrap();
+        d.a.hue = 150.0;
+        d.a.saturation = 30.0;
+    }
+    hi.idle(10);
+    hi.snap(&out.join("24-adjust-colors.png"));
+    let px_adj = {
+        let p = hi.app.book.as_ref().unwrap().page();
+        p.doc
+            .layer(img_layer)
+            .unwrap()
+            .raster
+            .get(cc.x as i32, cc.y as i32)
+    };
+    hi.app.close_adjust(true);
+    hi.idle(2);
+    let s = px_adj.to_straight();
+    assert!(s[2] > s[0], "hue shift turned orange towards blue: {s:?}");
+    // Opacity through the layer palette data, then undo the color change.
+    hi.app.undo();
+    hi.idle(2);
+    let s = {
+        let p = hi.app.book.as_ref().unwrap().page();
+        p.doc
+            .layer(img_layer)
+            .unwrap()
+            .raster
+            .get(cc.x as i32, cc.y as i32)
+            .to_straight()
+    };
+    assert!(s[0] > s[2], "undo restores the original colors: {s:?}");
+    {
+        let page = hi.app.book.as_mut().unwrap().page_mut();
+        page.doc.layer_mut(img_layer).unwrap().props.opacity = 140;
+        page.doc.mark_all_dirty();
+    }
+    hi.app.tool = Tool::Brush;
+    hi.idle(10);
+    hi.snap(&out.join("25-image-layer-opacity.png"));
     let _ = std::fs::remove_dir_all(&work);
     println!("all scenarios passed");
+}
+
+fn inkstudio_pt(x: f32, y: f32) -> ink_vector::Pt {
+    ink_vector::Pt::new(x, y)
 }

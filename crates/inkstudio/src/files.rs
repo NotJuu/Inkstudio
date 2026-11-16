@@ -12,6 +12,16 @@ use std::path::{Path, PathBuf};
 pub enum Mode {
     Open,
     Save,
+    /// Pick a picture (PNG, JPEG, WebP, BMP, GIF, TIFF) to import.
+    Image,
+}
+
+/// Picture formats the image importer reads.
+pub const IMAGE_EXTENSIONS: [&str; 8] = ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tif", "tiff"];
+
+pub fn is_image(p: &Path) -> bool {
+    p.extension()
+        .is_some_and(|e| IMAGE_EXTENSIONS.iter().any(|x| e.eq_ignore_ascii_case(x)))
 }
 
 struct Entry {
@@ -84,9 +94,13 @@ impl FileDialog {
                     continue;
                 }
                 let dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
-                let inks = Path::new(&name)
-                    .extension()
-                    .is_some_and(|x| x.eq_ignore_ascii_case(ink_io::EXTENSION));
+                let inks = if self.mode == Mode::Image {
+                    is_image(Path::new(&name))
+                } else {
+                    Path::new(&name)
+                        .extension()
+                        .is_some_and(|x| x.eq_ignore_ascii_case(ink_io::EXTENSION))
+                };
                 if dir || inks {
                     self.entries.push(Entry { name, dir });
                 }
@@ -104,16 +118,19 @@ impl FileDialog {
         if n.is_empty() {
             return None;
         }
+        if self.mode == Mode::Image {
+            return Some(self.dir.join(n));
+        }
         Some(with_extension(&self.dir.join(n)))
     }
 
     pub fn show(&mut self, ui: &mut Ui, recent: &[PathBuf]) -> Outcome {
         let p = palette(ui);
         let mut out = Outcome::Open;
-        let title = if self.mode == Mode::Open {
-            tr("Open…")
-        } else {
-            tr("Save as…")
+        let title = match self.mode {
+            Mode::Open => tr("Open…"),
+            Mode::Save => tr("Save as…"),
+            Mode::Image => tr("Import image…"),
         };
         ui.label(RichText::new(title).text_style(text::title()));
         ui.add_space(tokens::space::S4);
@@ -155,8 +172,12 @@ impl FileDialog {
                         .show(ui, |ui| {
                             if self.entries.is_empty() {
                                 ui.label(
-                                    RichText::new(tr("No Inkstudio files here."))
-                                        .color(p.text_muted),
+                                    RichText::new(if self.mode == Mode::Image {
+                                        tr("No images here (PNG, JPEG, WebP, BMP, GIF, TIFF).")
+                                    } else {
+                                        tr("No Inkstudio files here.")
+                                    })
+                                    .color(p.text_muted),
                                 );
                             }
                             for (i, e) in self.entries.iter().enumerate() {
@@ -241,10 +262,10 @@ impl FileDialog {
         ui.add_space(tokens::space::S5);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = tokens::space::S4;
-            let label = if self.mode == Mode::Open {
-                tr("Open")
-            } else {
-                tr("Save")
+            let label = match self.mode {
+                Mode::Open => tr("Open"),
+                Mode::Save => tr("Save"),
+                Mode::Image => tr("Import"),
             };
             if ui
                 .add_enabled(
@@ -265,8 +286,14 @@ impl FileDialog {
             out = Outcome::Cancel;
         }
         if let Some(c) = chosen {
-            let c = with_extension(&c);
+            let c = if self.mode == Mode::Image {
+                c
+            } else {
+                with_extension(&c)
+            };
             match self.mode {
+                Mode::Image if c.is_file() => out = Outcome::Done(c),
+                Mode::Image => self.error = Some(format!("{}", c.display())),
                 Mode::Open if c.is_file() => out = Outcome::Done(c),
                 Mode::Open => self.error = Some(format!("{}", c.display())),
                 Mode::Save if c.exists() && self.confirm_overwrite.as_ref() != Some(&c) => {

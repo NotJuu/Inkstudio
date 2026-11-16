@@ -33,6 +33,8 @@ cargo run --release -p inkstudio
 | **Reader (F5)**: read the book like a printed manga, right to left: cover alone, then two-page spreads with the earlier page on the right. ← next, → previous, D single/double. | **A complete volume**: cover, title page, credits, contents, afterword and back cover, filled from *Book → Book info*. Story pages are numbered after the front matter. |
 | ![Book info](replica/app/20-book-info.png) | ![Animation timeline](replica/app/22-animation-timeline.png) |
 | **Book info**: title, volume, story and art credits, publisher, year, description and any number of extra credits. | **Animation timeline**: several tracks with show/hide and rename, a frame ruler with seconds, scrubbing, exposure blocks, new / duplicate / blank cel, insert / delete frame, fps presets, onion skin range and opacity. |
+| ![Image import and transform](replica/app/23-image-transform.png) | ![Adjust colors](replica/app/24-adjust-colors.png) |
+| **Images**: *File → Import image…* (Ctrl+Shift+I) or drop PNG, JPEG, WebP, BMP, GIF or TIFF files on the window. The picture lands on its own layer, fitted to the page. **Transform** (V / Ctrl+T) moves, scales, rotates and flips any layer with a live preview; Enter applies, Esc cancels. | **Layer settings**: opacity slider, blend mode, clip, lock, rename (double-click), duplicate (Ctrl+J), merge down, and *Adjust colors* (Ctrl+U): brightness, contrast, hue, saturation, lightness, invert, threshold to black & white, posterize, all live. |
 
 ### Canvas navigation
 
@@ -86,6 +88,9 @@ The backends live in `ink-tablet`. They feed samples into egui as pen events wit
 | G / L / D | fill / lasso fill / gradient |
 | I (or hold Alt) | eyedropper |
 | U | perspective & symmetry rulers |
+| V / Ctrl+T | move & transform layer (Enter applies, Esc cancels) |
+| Ctrl+Shift+I | import image |
+| Ctrl+J / Ctrl+U | duplicate layer / adjust colors |
 | F / T | panel frames / balloons & text |
 | H / R | hand / rotate view |
 | Shift+V | value check (grayscale) |
