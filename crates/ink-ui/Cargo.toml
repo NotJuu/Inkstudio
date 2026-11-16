@@ -1,0 +1,13 @@
+[package]
+name = "ink-ui"
+description = "Inkstudio design system: tokens, theme and UI primitives"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+egui.workspace = true
+egui-phosphor.workspace = true
+
+[dev-dependencies]
+png.workspace = true
