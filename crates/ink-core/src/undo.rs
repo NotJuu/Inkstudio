@@ -52,6 +52,9 @@ impl UndoEntry {
                         tiles: Vec::new(),
                     };
                 };
+                // Mark the restored keys themselves: a tile that undo removes is no longer in
+                // the layer, so marking the layer's remaining tiles would miss it.
+                let keys: Vec<_> = tiles.iter().map(|(k, _)| *k).collect();
                 let inverse = tiles
                     .into_iter()
                     .map(|(k, t)| {
@@ -60,7 +63,7 @@ impl UndoEntry {
                         (k, cur)
                     })
                     .collect();
-                doc.mark_dirty_layer(layer);
+                doc.mark_dirty(keys);
                 UndoEntry::Tiles {
                     label,
                     layer,
@@ -133,5 +136,40 @@ impl History {
     }
     pub fn is_empty(&self) -> bool {
         self.undo.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Layer, Rgba};
+
+    /// Undoing a stroke that created new tiles must report those tiles as changed, even though
+    /// they no longer exist in the layer afterwards (otherwise the canvas keeps showing them).
+    #[test]
+    fn undo_marks_removed_tiles_dirty() {
+        let mut doc = Document::new(1024, 1024, 72);
+        let id = doc.push_layer(Layer::new("ink"));
+        let _ = doc.take_dirty();
+        let before = vec![((2, 2), doc.layer(id).unwrap().raster.tile((2, 2)).cloned())];
+        doc.layer_mut(id).unwrap().raster.set(600, 600, Rgba::BLACK);
+        let mut h = History::default();
+        h.push(UndoEntry::Tiles {
+            label: "Stroke".into(),
+            layer: id,
+            tiles: before,
+        });
+        let _ = doc.take_dirty();
+        h.undo(&mut doc);
+        assert_eq!(doc.layer(id).unwrap().raster.tile_count(), 0);
+        assert!(
+            doc.take_dirty().contains(&(2, 2)),
+            "removed tile is redrawn"
+        );
+        h.redo(&mut doc);
+        assert!(
+            doc.take_dirty().contains(&(2, 2)),
+            "restored tile is redrawn"
+        );
     }
 }
