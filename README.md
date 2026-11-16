@@ -23,7 +23,27 @@ A native desktop drawing app for manga and comic artists, written in Rust. It is
 | Screentones: LPI, density (calibrated per dot shape), angle, 6 dot shapes, 1-bit print output | `ink-raster::tone` | engine ✔ |
 | Rulers: perspective 1/2/3-point, parallel, focus lines, concentric, straight, symmetry (rotational and mirror) | `ink-vector::ruler` | engine ✔ |
 | Layers: blend modes, opacity, clipping, alpha lock, reference and draft layers, copy-on-write undo | `ink-core` | engine ✔ |
+| **54 brushes**, manga first: ink pens, pencils, paint, airbrush, erasers, manga effects, decoration, tone pens | `ink-raster::presets` | engine ✔ |
+| Brush engine options: tip shapes (round, flat/chisel, square, star, heart, flower, ring, multi-line), paper grain, scatter, speed → size, follow stroke direction, dashes, paint-with-screentone | `ink-raster::{brush, tip}` | engine ✔ |
 | Panels, balloons, vertical text, multi-page books, animation timeline, 3D mannequin, material packs | `replica/architecture.md` | planned |
+
+## Brushes
+
+![Brush catalog](replica/brushes.png)
+
+| category | brushes |
+| --- | --- |
+| Ink pens | G-pen, mapping pen, round pen, turnip pen, brush pen (thins when fast), sumi brush, calligraphy nib, fineliner, marker, dry ink pen, effect-line pen |
+| Pencils | HB, soft 2B, mechanical, layout pencil, charcoal, colored pencil, crayon |
+| Paint | round, flat, dry brush (bristle lines), watercolor wash, gouache, flatting brush |
+| Airbrush & spray | soft, hard, spray, grit |
+| Erasers | hard, soft, kneaded, rough, tone scratch (erases in a line pattern), scratch knife |
+| Manga effects | speed-line brush (many parallel lines in one stroke), hair strands, dashed line, stitches, rain, snow/bokeh, cloud/smoke, bubbles, grass, leaves |
+| Decoration | sparkles, stars, hearts, flowers, stipple |
+| Tone pens | dot tone 20% / 40%, line tone, cross-hatch tone, sand tone. They paint the screentone pattern directly |
+
+Every preset costs **≤ 0.2 ms per pen sample** (most 0.003–0.07 ms), measured with
+`cargo run --release -p ink-raster --example brush_sheet`.
 
 ## Performance
 

@@ -20,10 +20,10 @@ Pen/brush engine with dab tips,brush,must,yes,engine,
 Pressure curves for size/opacity/density,brush,must,yes,engine,
 Stroke stabilization,brush,must,yes,engine,
 Post-correction line smoothing,brush,should,yes,engine,
-Velocity-based brush dynamics,brush,could,yes,no,4.1 added velocity graph
+Velocity-based brush dynamics,brush,could,yes,engine,4.1 added velocity graph
 Pencil / G-pen / mapping pen style presets,brush,must,yes,engine,own original presets
 Airbrush and soft brushes,brush,must,yes,engine,
-Watercolor/color-mixing brushes,brush,could,yes,no,
+Watercolor/color-mixing brushes,brush,could,yes,partial,wash done; color mixing/smudge pending
 Eraser (raster),brush,must,yes,engine,
 Custom sub tools (duplicate/edit/save presets),brush,must,yes,no,S04/S05
 Brush import/export in own format,brush,could,yes,no,
@@ -127,3 +127,5 @@ Edition limits (24-frame PRO cap),skip,skip,yes,no,business rule
 3D perspective match (ruler from 3D camera),reference,could,yes,no,
 "Material pack import/export (brushes, tones, templates)",library,should,yes,no,CSP highlight: community sharing via files
 Performance budget: <1 ms per pen sample on 600 dpi B4,platform,must,yes,engine,0.06-0.12 ms measured (showcase)
+Brush catalog: 54 manga-focused presets,brush,must,yes,engine,"ink, pencil, paint, airbrush, eraser, effects, decoration, tone pens"
+"Tip shapes, grain, scatter, speed dynamics, direction, dashes, tone-pattern painting",brush,must,yes,engine,

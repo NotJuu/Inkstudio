@@ -10,6 +10,8 @@
 //! * Only tiles touched since the last update are recomposited.
 
 use crate::curve::Curve;
+use crate::tip::{hash01, sdf, Grain, Scatter, TipShape};
+use crate::tone::{Tone, ToneSettings};
 use ink_core::tile::{TileKey, TILE, TILE_PX};
 use ink_core::{Document, LayerId, Rgba, Tile, UndoEntry};
 use std::collections::HashMap;
@@ -74,6 +76,22 @@ pub struct BrushParams {
     pub stabilization: u32,
     pub post_correction: bool,
     pub anti_alias: bool,
+    // ---- tip ---------------------------------------------------------------------------
+    pub tip: TipShape,
+    /// 1 = round; < 1 squashes the tip (flat brushes, calligraphy nibs).
+    pub roundness: f32,
+    /// Tip rotation in degrees (relative to the stroke direction if `follow_direction`).
+    pub angle_deg: f32,
+    pub follow_direction: bool,
+    // ---- texture and effects ----------------------------------------------------------------
+    pub grain: Option<Grain>,
+    pub scatter: Option<Scatter>,
+    /// > 0: lines get thinner when drawn fast (brush pens); < 0: thicker.
+    pub speed_size: f32,
+    /// Dashed line: (dash, gap) in multiples of the brush diameter.
+    pub dash: Option<(f32, f32)>,
+    /// Paint (or erase) only where this screentone has dots: tone pens and tone scratching.
+    pub pattern: Option<ToneSettings>,
 }
 
 impl BrushParams {
@@ -96,6 +114,15 @@ impl BrushParams {
             stabilization: 12,
             post_correction: true,
             anti_alias: true,
+            tip: TipShape::Round,
+            roundness: 1.0,
+            angle_deg: 0.0,
+            follow_direction: false,
+            grain: None,
+            scatter: None,
+            speed_size: 0.0,
+            dash: None,
+            pattern: None,
         }
     }
 
@@ -197,6 +224,10 @@ struct Dab {
     alpha: f32,
     /// Arc length from the stroke start.
     dist: f32,
+    /// Tip rotation in radians.
+    angle: f32,
+    /// Random seed for scatter (stable, so re-rendering a stroke gives identical pixels).
+    seed: u32,
 }
 
 /// A smoothed point of the stroke path, with the radius and arc length the engine used.
@@ -236,11 +267,17 @@ pub struct Stroke {
     /// Tiles changed since the last flush, with the changed local rect (x0, y0, x1, y1).
     pending: HashMap<TileKey, [u16; 4]>,
     path: Vec<PathPoint>,
+    tone: Option<Tone>,
+    /// Current stroke direction (radians) and smoothed speed (px/s).
+    dir: f32,
+    speed: f32,
+    seq: u32,
 }
 
 impl Stroke {
     pub fn begin(doc: &Document, layer: LayerId, params: BrushParams, color: Rgba) -> Self {
         let lock_alpha = doc.layer(layer).is_some_and(|l| l.props.lock_alpha);
+        let tone = params.pattern.map(|t| Tone::new(t, doc.dpi as f32));
         Self {
             stab: Stabilizer::new(params.stabilization),
             params,
@@ -255,6 +292,10 @@ impl Stroke {
             lock_alpha,
             pending: HashMap::new(),
             path: Vec::new(),
+            tone,
+            dir: 0.0,
+            speed: 0.0,
+            seq: 0,
         }
     }
 
@@ -345,6 +386,11 @@ impl Stroke {
         if seg < 1e-4 {
             return;
         }
+        self.dir = dy.atan2(dx);
+        let dt = (s.time - prev.time) as f32;
+        if dt > 1e-4 {
+            self.speed = self.speed * 0.6 + (seg / dt) * 0.4;
+        }
         let mut t = 0.0f32;
         loop {
             let p = prev.pressure + (s.pressure - prev.pressure) * t;
@@ -376,13 +422,46 @@ impl Stroke {
         if pr.taper_start > 0.0 && dist < pr.taper_start {
             radius *= (dist / pr.taper_start).sqrt().max(0.05);
         }
-        let d = Dab { x, y, radius, alpha: pr.alpha_at(pressure), dist };
+        if pr.speed_size != 0.0 {
+            radius *= (1.0 - pr.speed_size * (self.speed / 1500.0).min(1.0)).clamp(0.15, 2.0);
+        }
+        if let Some((on, off)) = pr.dash {
+            let period = (on + off) * pr.size;
+            if period > 0.0 && dist % period > on * pr.size {
+                return;
+            }
+        }
+        let angle = pr.angle_deg.to_radians() + if pr.follow_direction { self.dir } else { 0.0 };
+        self.seq = self.seq.wrapping_add(1);
+        let d = Dab { x, y, radius, alpha: pr.alpha_at(pressure), dist, angle, seed: self.seq };
         self.stamp(&d);
         self.dabs.push(d);
     }
 
-    /// Rasterize one dab into the coverage buffer.
+    /// Rasterize one dab (or its scattered particles) into the coverage buffer.
     fn stamp(&mut self, d: &Dab) {
+        match self.params.scatter {
+            None => self.stamp_one(d.x, d.y, d.radius, d.angle, d.alpha),
+            Some(sc) => {
+                for k in 0..sc.count as u32 {
+                    let rnd = |j: u32| hash01(d.seed, k * 8 + j);
+                    let a = rnd(0) * std::f32::consts::TAU;
+                    let off = rnd(1).sqrt() * sc.spread * d.radius;
+                    let r = d.radius * sc.size * (1.0 - sc.size_jitter * rnd(2));
+                    let ang = d.angle + sc.angle_jitter * (rnd(3) * 2.0 - 1.0) * std::f32::consts::PI;
+                    let alpha = d.alpha * (1.0 - sc.opacity_jitter * rnd(4));
+                    self.stamp_one(d.x + a.cos() * off, d.y + a.sin() * off, r, ang, alpha);
+                }
+            }
+        }
+    }
+
+    fn stamp_one(&mut self, cx: f32, cy: f32, radius: f32, angle: f32, alpha: f32) {
+        let plain = self.params.tip == TipShape::Round && self.params.roundness >= 0.999 && self.params.grain.is_none() && self.tone.is_none();
+        if !plain {
+            return self.stamp_shaped(cx, cy, radius, angle, alpha);
+        }
+        let d = Dab { x: cx, y: cy, radius, alpha, dist: 0.0, angle, seed: 0 };
         let r = d.radius.max(0.3);
         let hard = self.params.hardness.clamp(0.0, 1.0);
         let aa = if self.params.anti_alias { 1.0 } else { 0.0 };
@@ -419,6 +498,68 @@ impl Stroke {
                     }
                     let a = (a * strength * 65535.0) as u32;
                     let c = &mut row[lx];
+                    *c = if accumulate {
+                        (*c as u32 + a * (65535 - *c as u32) / 65535).min(65535) as u16
+                    } else {
+                        (*c as u32).max(a) as u16
+                    };
+                }
+            }
+        }
+    }
+
+    /// General dab: SDF tip with rotation and roundness, paper grain, tone pattern.
+    fn stamp_shaped(&mut self, cx: f32, cy: f32, radius: f32, angle: f32, alpha: f32) {
+        let r = radius.max(0.3);
+        let pr = &self.params;
+        let round = pr.roundness.clamp(0.05, 1.0);
+        let hard = pr.hardness.clamp(0.0, 1.0);
+        let aa = if pr.anti_alias { 1.0 } else { 0.0 };
+        // Fade width in pixels, measured across the thin axis so squashed tips stay crisp.
+        let fade = (r * round * (1.0 - hard)).max(aa).max(1e-3);
+        let (sn, cs) = angle.sin_cos();
+        let accumulate = pr.coverage == Coverage::Accumulate;
+        let strength = if accumulate { pr.flow } else { 1.0 } * alpha;
+        let (tip, grain) = (pr.tip, pr.grain);
+        let ext = r + 1.5;
+        let (x0, y0) = ((cx - ext).floor() as i32, (cy - ext).floor() as i32);
+        let (x1, y1) = ((cx + ext).ceil() as i32 + 1, (cy + ext).ceil() as i32 + 1);
+        for k in ink_core::tile::keys_in(x0, y0, x1, y1) {
+            let ox = k.0 * TILE as i32;
+            let oy = k.1 * TILE as i32;
+            let (lx0, ly0) = ((x0 - ox).max(0) as usize, (y0 - oy).max(0) as usize);
+            let (lx1, ly1) = ((x1 - ox).min(TILE as i32) as usize, (y1 - oy).min(TILE as i32) as usize);
+            let pe = self.pending.entry(k).or_insert([u16::MAX, u16::MAX, 0, 0]);
+            *pe = [pe[0].min(lx0 as u16), pe[1].min(ly0 as u16), pe[2].max(lx1 as u16), pe[3].max(ly1 as u16)];
+            let tone = self.tone.as_ref();
+            let buf = self.cov.tiles.entry(k).or_insert_with(|| vec![0u16; TILE_PX].into_boxed_slice());
+            for ly in ly0..ly1 {
+                let gy = (oy + ly as i32) as f32 + 0.5;
+                let py = gy - cy;
+                for lx in lx0..lx1 {
+                    let gx = (ox + lx as i32) as f32 + 0.5;
+                    let px = gx - cx;
+                    // Into tip space: undo rotation, stretch the thin axis.
+                    let qx = (px * cs + py * sn) / r;
+                    let qy = (-px * sn + py * cs) / (r * round);
+                    let dist = sdf(tip, qx, qy) * r * round;
+                    let t = ((dist + fade * 0.5) / fade).clamp(0.0, 1.0);
+                    if t >= 1.0 {
+                        continue;
+                    }
+                    let s = 1.0 - t;
+                    let mut a = if hard >= 1.0 { s } else { s * s * (3.0 - 2.0 * s) };
+                    if let Some(g) = grain {
+                        a *= g.factor(gx, gy);
+                    }
+                    if let Some(tn) = tone {
+                        a *= tn.coverage(gx as i32, gy as i32, false);
+                    }
+                    if a <= 0.0 {
+                        continue;
+                    }
+                    let a = (a * strength * 65535.0) as u32;
+                    let c = &mut buf[ly * TILE + lx];
                     *c = if accumulate {
                         (*c as u32 + a * (65535 - *c as u32) / 65535).min(65535) as u16
                     } else {
