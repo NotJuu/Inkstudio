@@ -1,5 +1,5 @@
 /// 2-D point / vector in canvas pixels.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Pt {
     pub x: f32,
     pub y: f32,

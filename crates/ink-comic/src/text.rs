@@ -13,7 +13,7 @@ use ink_core::{Raster, Rgba};
 use ink_vector::Pt;
 use std::path::Path;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum TextDir {
     Horizontal,
     #[default]

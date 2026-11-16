@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 /// Stable layer identity (survives reordering; used by undo and by the file format).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct LayerId(pub u64);
 
 /// One page: a canvas size and a bottom-to-top layer stack.
@@ -34,6 +34,13 @@ impl Document {
         self.layers.insert(index, (id, layer));
         self.dirty = None;
         id
+    }
+
+    /// Append a layer with a known id (loading files). Later ids continue after it.
+    pub fn push_layer_with_id(&mut self, id: LayerId, layer: Layer) {
+        self.layers.push((id, layer));
+        self.next_id = self.next_id.max(id.0 + 1);
+        self.dirty = None;
     }
 
     pub fn push_layer(&mut self, layer: Layer) -> LayerId {

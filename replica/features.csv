@@ -6,15 +6,15 @@ Mouse/trackpad drawing fallback,input,must,yes,app,
 Customizable keyboard shortcuts,input,should,yes,no,S27
 Modifier-key tool switching (temporary eyedropper/hand),input,must,yes,no,
 New canvas dialog with use presets (illustration/comic/animation),file,must,yes,app,S02
-Start screen with recent files,file,should,yes,no,S01
-Own native project file format,file,must,yes,no,not .clip; Inkstudio-defined
-Autosave and crash recovery,file,must,yes,no,S29
+Start screen with recent files,file,should,yes,partial,recent files in File menu and open dialog
+Own native project file format,file,must,yes,app,"SQLite + LZ4 tiles, atomic save"
+Autosave and crash recovery,file,must,yes,partial,atomic saves; no autosave yet
 PNG/JPG export,file,must,yes,partial,PNG color/gray/1-bit; JPG pending
 PSD import/export with layers,file,should,yes,no,
 PDF export (multi-page),file,should,yes,no,EX: export multiple pages
 1-bit monochrome export for print,file,must,yes,app,manga print output
-Canvas pan/zoom/rotate/flip,canvas,must,yes,partial,pan/zoom done; rotate/flip pending
-Navigator palette,canvas,should,yes,no,S09
+Canvas pan/zoom/rotate/flip,canvas,must,yes,app,"any angle, mirror, keys, gestures, navigator"
+Navigator palette,canvas,should,yes,app,S09
 Multiple canvas views of one file,canvas,could,yes,no,
 Pen/brush engine with dab tips,brush,must,yes,engine,
 Pressure curves for size/opacity/density,brush,must,yes,engine,
@@ -106,8 +106,8 @@ Audio track,animation,could,yes,no,
 Export GIF,animation,must,yes,app,
 Export PNG sequence,animation,must,yes,no,
 Export MP4,animation,should,yes,no,needs encoder
-Dockable / floating palettes,ui,must,yes,partial,fixed docks; egui_dock pending
-Saved workspace layouts,ui,should,yes,no,S28
+Dockable / floating palettes,ui,must,yes,app,"egui_dock, layout saved"
+Saved workspace layouts,ui,should,yes,partial,one saved layout + reset
 Quick access palette,ui,could,yes,no,
 Dark and light UI themes,ui,should,yes,no,
 Preferences (pressure calibration/cursor/performance),ui,must,yes,no,S26
@@ -131,3 +131,5 @@ Brush catalog: 54 manga-focused presets,brush,must,yes,app,"ink, pencil, paint, 
 "Tip shapes, grain, scatter, speed dynamics, direction, dashes, tone-pattern painting",brush,must,yes,engine,
 Balloon style picker tool with drag/resize/tail editing,text,must,partial,app,"10 styles, Inkstudio-specific palette"
 "Panel templates (4-koma, 5-panel, grids)",manga,should,partial,app,
+English and German UI,ui,must,yes,app,follows system language; completeness test
+Unsaved-changes prompt (new/open/quit/close window),file,must,yes,app,

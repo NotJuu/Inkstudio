@@ -83,7 +83,7 @@ impl Raster {
 }
 
 /// User-visible layer properties (layer palette, S07/S08).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LayerProps {
     pub name: String,
     pub visible: bool,

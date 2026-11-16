@@ -10,7 +10,7 @@ use ink_core::{Document, LayerId, Rgba, Tile, UndoEntry};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum DotShape {
     Circle,
     Square,
@@ -20,7 +20,7 @@ pub enum DotShape {
     Noise,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ToneSettings {
     pub lpi: f32,
     /// 0..=1 fraction of paper covered.

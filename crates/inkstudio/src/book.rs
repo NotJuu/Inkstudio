@@ -5,7 +5,7 @@ use ink_comic::{Balloon, Fonts, PanelSet, PanelTemplate};
 use ink_core::{Document, History, Layer, LayerId, Rgba, UndoEntry};
 use ink_vector::Pt;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SheetKind {
     Illustration,
     MangaPage,
@@ -30,7 +30,7 @@ impl SheetKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ColorMode {
     Color,
     Gray,
@@ -47,7 +47,7 @@ impl ColorMode {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Binding {
     /// Japanese manga: read right to left, binding on the right.
     Right,
@@ -55,7 +55,7 @@ pub enum Binding {
 }
 
 /// Everything the "New sheet" dialog decides.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SheetSettings {
     pub name: String,
     pub kind: SheetKind,
@@ -137,6 +137,8 @@ pub struct Page {
     pub history: History,
     steps: Vec<Step>,
     redo_steps: Vec<Step>,
+    /// Edits since the last save (window title shows •).
+    pub dirty: bool,
     pub panels: PanelSet,
     pub panel_layer: LayerId,
     pub balloons: Vec<Balloon>,
@@ -145,7 +147,7 @@ pub struct Page {
     pub timeline: Option<Timeline>,
     pub frame: usize,
     pub thumb_dirty: bool,
-    next_balloon: u64,
+    pub(crate) next_balloon: u64,
 }
 
 impl Page {
@@ -181,6 +183,7 @@ impl Page {
             history: History::default(),
             steps: Vec::new(),
             redo_steps: Vec::new(),
+            dirty: false,
             panels,
             panel_layer,
             balloons: Vec::new(),
@@ -193,6 +196,26 @@ impl Page {
         };
         page.render_panels();
         page
+    }
+
+    /// A page around an existing document (loading).
+    pub(crate) fn new_empty(doc: Document, panel_layer: LayerId, balloon_layer: LayerId, ink_layer: LayerId) -> Self {
+        Self {
+            doc,
+            history: History::default(),
+            steps: Vec::new(),
+            redo_steps: Vec::new(),
+            dirty: false,
+            panels: PanelSet::default(),
+            panel_layer,
+            balloons: Vec::new(),
+            balloon_layer,
+            ink_layer,
+            timeline: None,
+            frame: 0,
+            thumb_dirty: true,
+            next_balloon: 0,
+        }
     }
 
     pub fn canvas(&self) -> (u32, u32) {
@@ -235,12 +258,14 @@ impl Page {
         self.steps.push(Step::Doc);
         self.redo_steps.clear();
         self.thumb_dirty = true;
+        self.dirty = true;
     }
 
     /// Record the comic objects *before* an edit.
     pub fn push_objects(&mut self) {
         self.steps.push(Step::Objects { panels: self.panels.clone(), balloons: self.balloons.clone() });
         self.redo_steps.clear();
+        self.dirty = true;
     }
 
     pub fn undo(&mut self, fonts: &Fonts) -> bool {
@@ -259,6 +284,7 @@ impl Page {
         };
         self.redo_steps.push(inverse);
         self.thumb_dirty = true;
+        self.dirty = true;
         true
     }
 
@@ -278,6 +304,7 @@ impl Page {
         };
         self.steps.push(inverse);
         self.thumb_dirty = true;
+        self.dirty = true;
         true
     }
 
@@ -301,13 +328,17 @@ pub struct Book {
     pub settings: SheetSettings,
     pub pages: Vec<Page>,
     pub current: usize,
+    /// Where the book was last saved / opened from.
+    pub path: Option<std::path::PathBuf>,
+    /// Page-level structure changed (pages added, removed, moved) since the last save.
+    pub structure_dirty: bool,
 }
 
 impl Book {
     pub fn new(settings: SheetSettings) -> Self {
         let n = if settings.kind == SheetKind::Book { settings.pages.max(1) } else { 1 };
         let pages = (0..n).map(|_| Page::new(&settings)).collect();
-        Self { settings, pages, current: 0 }
+        Self { settings, pages, current: 0, path: None, structure_dirty: false }
     }
 
     pub fn page(&self) -> &Page {
@@ -321,12 +352,19 @@ impl Book {
         let mut s = self.settings.clone();
         s.template = self.settings.template;
         self.pages.insert(at.min(self.pages.len()), Page::new(&s));
+        self.structure_dirty = true;
+    }
+
+    /// Unsaved changes anywhere in the book.
+    pub fn is_dirty(&self) -> bool {
+        self.structure_dirty || self.pages.iter().any(|p| p.dirty)
     }
 
     pub fn delete_page(&mut self, i: usize) {
         if self.pages.len() > 1 && i < self.pages.len() {
             self.pages.remove(i);
             self.current = self.current.min(self.pages.len() - 1);
+            self.structure_dirty = true;
         }
     }
 
@@ -335,6 +373,7 @@ impl Book {
             let p = self.pages.remove(from);
             self.pages.insert(to, p);
             self.current = to;
+            self.structure_dirty = true;
         }
     }
 }

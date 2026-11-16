@@ -1,4 +1,4 @@
-//! "New sheet" dialog (S02): kind, paper format, resolution, bleed and safe area, color mode,
+//! tr("New sheet") dialog (S02): kind, paper format, resolution, bleed and safe area, color mode,
 //! pages and binding, animation settings, panel template — with a live preview.
 
 use crate::book::{Binding, ColorMode, SheetKind, SheetSettings};
@@ -6,6 +6,7 @@ use egui::{Color32, Rect, RichText, Stroke, Ui, pos2, vec2};
 use ink_comic::{PanelSet, PanelTemplate};
 use ink_core::Rgba;
 use ink_ui::theme::{palette, text, tokens};
+use ink_ui::tr;
 use ink_ui::widgets::{Button, ButtonVariant};
 use ink_vector::Pt;
 
@@ -116,12 +117,12 @@ impl NewSheet {
     pub fn show(&mut self, ui: &mut Ui) -> Outcome {
         let p = palette(ui);
         let mut out = Outcome::Open;
-        ui.label(RichText::new("New sheet").text_style(text::title()));
+        ui.label(RichText::new(tr("New sheet")).text_style(text::title()));
         ui.add_space(tokens::space::S4);
         // ---- kind -----------------------------------------------------------------------------
         ui.horizontal(|ui| {
             for k in SheetKind::ALL {
-                if ui.selectable_label(self.s.kind == k, k.name()).clicked() {
+                if ui.selectable_label(self.s.kind == k, tr(k.name())).clicked() {
                     self.set_kind(k);
                 }
             }
@@ -132,16 +133,16 @@ impl NewSheet {
             ui.vertical(|ui| {
                 ui.set_width(380.0);
                 egui::Grid::new("sheet-grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
-                    ui.label("Name");
+                    ui.label(tr("Name"));
                     ui.add(egui::TextEdit::singleline(&mut self.s.name).desired_width(220.0));
                     ui.end_row();
 
-                    ui.label("Format");
-                    let cur = FORMATS[self.format].0;
+                    ui.label(tr("Format"));
+                    let cur = tr(FORMATS[self.format].0);
                     let mut pick = None;
                     egui::ComboBox::from_id_salt("format").width(220.0).selected_text(cur).show_ui(ui, |ui| {
                         for (i, f) in FORMATS.iter().enumerate() {
-                            if ui.selectable_label(self.format == i, f.0).clicked() {
+                            if ui.selectable_label(self.format == i, tr(f.0)).clicked() {
                                 pick = Some(i);
                             }
                         }
@@ -151,7 +152,7 @@ impl NewSheet {
                     }
                     ui.end_row();
 
-                    ui.label("Size");
+                    ui.label(tr("Size"));
                     ui.horizontal(|ui| {
                         let mut w = self.to_unit(self.s.trim_mm.0);
                         let mut h = self.to_unit(self.s.trim_mm.1);
@@ -171,20 +172,20 @@ impl NewSheet {
                     });
                     ui.end_row();
 
-                    ui.label("Orientation");
+                    ui.label(tr("Orientation"));
                     ui.horizontal(|ui| {
                         let (w, h) = self.s.trim_mm;
-                        if ui.selectable_label(w <= h, "Portrait").clicked() && w > h {
+                        if ui.selectable_label(w <= h, tr("Portrait")).clicked() && w > h {
                             self.s.trim_mm = (h, w);
                         }
-                        if ui.selectable_label(w > h, "Landscape").clicked() && w <= h {
+                        if ui.selectable_label(w > h, tr("Landscape")).clicked() && w <= h {
                             self.s.trim_mm = (h, w);
                         }
                         self.landscape = self.s.trim_mm.0 > self.s.trim_mm.1;
                     });
                     ui.end_row();
 
-                    ui.label("Resolution");
+                    ui.label(tr("Resolution"));
                     let px_before = (self.to_unit(self.s.trim_mm.0), self.to_unit(self.s.trim_mm.1));
                     let dpi_before = self.s.dpi;
                     ui.horizontal(|ui| {
@@ -202,59 +203,59 @@ impl NewSheet {
                     ui.end_row();
 
                     if self.s.kind.has_print_guides() {
-                        ui.label("Bleed");
+                        ui.label(tr("Bleed"));
                         ui.add(egui::DragValue::new(&mut self.s.bleed_mm).range(0.0..=20.0).suffix(" mm").speed(0.1));
                         ui.end_row();
-                        ui.label("Safe area margin");
+                        ui.label(tr("Safe area margin"));
                         ui.add(egui::DragValue::new(&mut self.s.safe_mm).range(0.0..=60.0).suffix(" mm").speed(0.2));
                         ui.end_row();
                     }
 
-                    ui.label("Color mode");
-                    egui::ComboBox::from_id_salt("mode").width(220.0).selected_text(self.s.color_mode.name()).show_ui(ui, |ui| {
+                    ui.label(tr("Color mode"));
+                    egui::ComboBox::from_id_salt("mode").width(220.0).selected_text(tr(self.s.color_mode.name())).show_ui(ui, |ui| {
                         for m in [ColorMode::Color, ColorMode::Gray, ColorMode::Mono] {
-                            ui.selectable_value(&mut self.s.color_mode, m, m.name());
+                            ui.selectable_value(&mut self.s.color_mode, m, tr(m.name()));
                         }
                     });
                     ui.end_row();
 
-                    ui.label("Paper");
+                    ui.label(tr("Paper"));
                     ui.horizontal(|ui| {
-                        if ui.selectable_label(self.s.paper.a() == 255, "White").clicked() {
+                        if ui.selectable_label(self.s.paper.a() == 255, tr("White")).clicked() {
                             self.s.paper = Rgba::WHITE;
                         }
-                        if ui.selectable_label(self.s.paper.a() == 0, "Transparent").clicked() {
+                        if ui.selectable_label(self.s.paper.a() == 0, tr("Transparent")).clicked() {
                             self.s.paper = Rgba::TRANSPARENT;
                         }
                     });
                     ui.end_row();
 
                     if self.s.kind == SheetKind::Book {
-                        ui.label("Pages");
+                        ui.label(tr("Pages"));
                         ui.add(egui::DragValue::new(&mut self.s.pages).range(1..=500));
                         ui.end_row();
-                        ui.label("Binding");
+                        ui.label(tr("Binding"));
                         ui.horizontal(|ui| {
-                            ui.selectable_value(&mut self.s.binding, Binding::Right, "Right (manga, read ←)");
-                            ui.selectable_value(&mut self.s.binding, Binding::Left, "Left (read →)");
+                            ui.selectable_value(&mut self.s.binding, Binding::Right, tr("Right (manga, read ←)"));
+                            ui.selectable_value(&mut self.s.binding, Binding::Left, tr("Left (read →)"));
                         });
                         ui.end_row();
                     }
 
                     if self.s.kind.has_print_guides() {
-                        ui.label("Panels");
-                        let name = self.s.template.map_or("None", |t| t.name());
+                        ui.label(tr("Panels"));
+                        let name = self.s.template.map_or(tr("None"), |t| tr(t.name()));
                         egui::ComboBox::from_id_salt("tpl").width(220.0).selected_text(name).show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.s.template, None, "None");
+                            ui.selectable_value(&mut self.s.template, None, tr("None"));
                             for t in PanelTemplate::ALL {
-                                ui.selectable_value(&mut self.s.template, Some(t), t.name());
+                                ui.selectable_value(&mut self.s.template, Some(t), tr(t.name()));
                             }
                         });
                         ui.end_row();
                     }
 
                     if self.s.kind == SheetKind::Animation {
-                        ui.label("Frame rate");
+                        ui.label(tr("Frame rate"));
                         ui.horizontal(|ui| {
                             for f in [8.0, 12.0, 24.0, 30.0] {
                                 ui.selectable_value(&mut self.s.fps, f, format!("{f}"));
@@ -262,7 +263,7 @@ impl NewSheet {
                             ui.add(egui::DragValue::new(&mut self.s.fps).range(1.0..=60.0).suffix(" fps"));
                         });
                         ui.end_row();
-                        ui.label("Length");
+                        ui.label(tr("Length"));
                         ui.horizontal(|ui| {
                             ui.add(egui::DragValue::new(&mut self.s.frames).range(1..=9999).suffix(" frames"));
                             ui.label(RichText::new(format!("= {:.2} s", self.s.frames as f32 / self.s.fps)).color(p.text_muted));
@@ -279,12 +280,12 @@ impl NewSheet {
                 let mp = self.s.megapixels();
                 let pages = if self.s.kind == SheetKind::Book { self.s.pages } else { 1 };
                 ui.label(RichText::new(format!("{w} × {h} px · {mp:.1} MP")).color(p.text_muted));
-                ui.label(RichText::new(format!("{:.1} × {:.1} mm finished · {} dpi", self.s.trim_mm.0, self.s.trim_mm.1, self.s.dpi)).color(p.text_muted));
+                ui.label(RichText::new(tr("{w} × {h} mm finished · {d} dpi").replace("{w}", &format!("{:.1}", self.s.trim_mm.0)).replace("{h}", &format!("{:.1}", self.s.trim_mm.1)).replace("{d}", &self.s.dpi.to_string())).color(p.text_muted));
                 if pages > 1 {
-                    ui.label(RichText::new(format!("{pages} pages")).color(p.text_muted));
+                    ui.label(RichText::new(tr("{n} pages").replace("{n}", &pages.to_string())).color(p.text_muted));
                 }
                 if mp > 120.0 {
-                    ui.label(RichText::new("Very large canvas: drawing stays fast, but exports take longer.").color(p.warning));
+                    ui.label(RichText::new(tr("Very large canvas: drawing stays fast, but exports take longer.")).color(p.warning));
                 }
             });
         });
@@ -292,10 +293,10 @@ impl NewSheet {
         let valid = self.s.trim_mm.0 > 0.0 && self.s.trim_mm.1 > 0.0 && self.s.canvas_px().0 <= 30000 && self.s.canvas_px().1 <= 60000;
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = tokens::space::S4;
-            if ui.add_enabled(valid, Button::new("Create").variant(ButtonVariant::Primary).min_width(96.0)).clicked() {
+            if ui.add_enabled(valid, Button::new(tr("Create")).variant(ButtonVariant::Primary).min_width(96.0)).clicked() {
                 out = Outcome::Create(self.s.clone());
             }
-            if self.cancelable && ui.add(Button::new("Cancel").min_width(80.0)).clicked() {
+            if self.cancelable && ui.add(Button::new(tr("Cancel")).min_width(80.0)).clicked() {
                 out = Outcome::Cancel;
             }
         });
@@ -337,7 +338,7 @@ impl NewSheet {
             }
         }
         if self.s.kind == SheetKind::Webtoon {
-            ui.painter().text(page.center(), egui::Align2::CENTER_CENTER, "scroll ↓", egui::FontId::proportional(11.0), Color32::from_gray(120));
+            ui.painter().text(page.center(), egui::Align2::CENTER_CENTER, tr("scroll ↓"), egui::FontId::proportional(11.0), Color32::from_gray(120));
         }
     }
 }

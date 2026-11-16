@@ -62,7 +62,7 @@ pub fn dialog_frame(
             ui.allocate_ui_with_layout(footer, egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.x = tokens::space::S4;
                 let ok = ui.add_enabled(ok_enabled, Button::new(ok_label).variant(ButtonVariant::Primary).min_width(80.0));
-                let cancel = ui.add(Button::new("Cancel").min_width(80.0));
+                let cancel = ui.add(Button::new(crate::tr("Cancel")).min_width(80.0));
                 if ok.clicked() {
                     result = DialogResult::Ok;
                 }

@@ -4,7 +4,7 @@ use crate::paint::{outline_pen, stroke_polyline};
 use ink_core::{Raster, Rgba};
 use ink_vector::Pt;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Panel {
     pub id: u64,
     /// Convex polygon, clockwise or counter-clockwise.
@@ -37,7 +37,7 @@ impl Panel {
 }
 
 /// Layout presets for a new page's panels.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PanelTemplate {
     Single,
     TwoRows,
@@ -74,7 +74,7 @@ impl PanelTemplate {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PanelSet {
     pub panels: Vec<Panel>,
     /// Border width in pixels.

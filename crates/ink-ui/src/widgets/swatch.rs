@@ -49,7 +49,7 @@ pub fn color_pair(ui: &mut Ui, main: Color32, sub: Color32) -> (bool, bool, bool
     let s = ui.put(sub_rect, |ui: &mut Ui| swatch(ui, sub, size, false));
     let m = ui.put(main_rect, |ui: &mut Ui| swatch(ui, main, size, true));
     let swap_rect = Rect::from_min_size(rect.min + vec2(size + 2.0, 0.0), vec2(16.0, 16.0));
-    let swap = ui.put(swap_rect, super::IconButton::new(crate::icons::ARROWS_LEFT_RIGHT, "Swap main and sub color").size(16.0));
+    let swap = ui.put(swap_rect, super::IconButton::new(crate::icons::ARROWS_LEFT_RIGHT, crate::tr("Swap main and sub color")).size(16.0));
     let _ = p;
     (m.clicked(), s.clicked(), swap.clicked())
 }

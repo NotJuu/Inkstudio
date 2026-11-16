@@ -8,8 +8,10 @@
 
 pub mod gallery;
 pub mod headless;
+pub mod i18n;
 pub mod preview;
 pub mod theme;
 pub mod widgets;
 
 pub use egui_phosphor::regular as icons;
+pub use i18n::tr;

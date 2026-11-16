@@ -1,0 +1,13 @@
+[package]
+name = "ink-io"
+description = "Inkstudio project files (.inks): SQLite container with compressed tiles"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+ink-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.43", features = ["bundled"] }
+lz4_flex = "0.14"

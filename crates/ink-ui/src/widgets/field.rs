@@ -19,7 +19,8 @@ pub fn slider_field(
     let p = palette(ui);
     ui.horizontal(|ui| {
         ui.set_min_height(tokens::control_h::SM);
-        ui.add_sized([72.0, tokens::control_h::SM], egui::Label::new(RichText::new(label).color(p.text_muted)).truncate());
+        ui.add_sized([96.0, tokens::control_h::SM], egui::Label::new(RichText::new(label).color(p.text_muted)).truncate())
+            .on_hover_text(label);
         let slider = ui.add(
             Slider::new(value, range.clone())
                 .show_value(false)
@@ -35,7 +36,7 @@ pub fn slider_field(
                 .max_decimals(1),
         );
         if let Some(on) = pressure {
-            let tip = if *on { "Pen pressure on" } else { "Pen pressure off" };
+            let tip = crate::tr(if *on { "Pen pressure on" } else { "Pen pressure off" });
             if ui.add(IconButton::new(icons::PEN_NIB, tip).selected(*on).size(tokens::control_h::SM)).clicked() {
                 *on = !*on;
             }

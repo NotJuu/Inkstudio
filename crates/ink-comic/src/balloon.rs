@@ -10,7 +10,7 @@ use ink_core::{Raster, Rgba};
 use ink_vector::Pt;
 use std::f32::consts::{PI, TAU};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum BalloonStyle {
     /// Classic oval speech balloon.
     Oval,
@@ -72,7 +72,7 @@ impl BalloonStyle {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TailStyle {
     None,
     Pointed,
@@ -80,7 +80,7 @@ pub enum TailStyle {
     Bubbles,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Balloon {
     pub id: u64,
     pub style: BalloonStyle,

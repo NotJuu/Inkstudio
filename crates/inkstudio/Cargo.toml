@@ -16,6 +16,11 @@ ink-vector.workspace = true
 ink-comic.workspace = true
 ink-anim.workspace = true
 ink-ui.workspace = true
+ink-io.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+egui_dock = { version = "0.21", features = ["serde"] }
+ron = "0.12"
 egui.workspace = true
 eframe = { version = "0.36", default-features = false, features = ["default_fonts", "wgpu", "wayland", "x11", "accesskit"] }
 png.workspace = true

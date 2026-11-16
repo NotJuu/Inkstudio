@@ -9,7 +9,7 @@ use ink_core::tile::{TileKey, TILE_PX};
 use ink_core::{Document, Layer, LayerId, Rgba, Tile};
 use std::collections::BTreeMap;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Track {
     pub name: String,
     pub cels: Vec<LayerId>,
@@ -17,7 +17,7 @@ pub struct Track {
     pub keys: BTreeMap<usize, Option<usize>>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct OnionSkin {
     pub enabled: bool,
     pub before: usize,
@@ -41,7 +41,7 @@ impl Default for OnionSkin {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Timeline {
     pub fps: f32,
     pub frames: usize,

@@ -118,8 +118,8 @@ pub fn layer_row(ui: &mut Ui, s: &LayerRowState) -> LayerRowEvent {
     // Eye + lock column.
     let eye_rect = Rect::from_min_size(rect.min + vec2(2.0, (h - 24.0) / 2.0), vec2(24.0, 24.0));
     let lock_rect = eye_rect.translate(vec2(24.0, 0.0));
-    let eye = ui.put(eye_rect, IconButton::new(if s.visible { icons::EYE } else { icons::EYE_SLASH }, if s.visible { "Hide layer" } else { "Show layer" }).size(24.0));
-    let lock = ui.put(lock_rect, IconButton::new(if s.locked { icons::LOCK } else { icons::LOCK_OPEN }, if s.locked { "Unlock layer" } else { "Lock layer" }).size(24.0));
+    let eye = ui.put(eye_rect, IconButton::new(if s.visible { icons::EYE } else { icons::EYE_SLASH }, crate::tr(if s.visible { "Hide layer" } else { "Show layer" })).size(24.0));
+    let lock = ui.put(lock_rect, IconButton::new(if s.locked { icons::LOCK } else { icons::LOCK_OPEN }, crate::tr(if s.locked { "Unlock layer" } else { "Lock layer" })).size(24.0));
     if eye.clicked() {
         ev = LayerRowEvent::ToggleVisible;
     }
