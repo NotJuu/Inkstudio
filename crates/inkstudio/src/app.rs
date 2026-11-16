@@ -23,11 +23,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+mod adjust;
 mod book_ui;
 mod coloring;
 mod reader;
 mod rulers;
 mod timeline;
+mod transform;
 
 pub use coloring::GradientMode;
 pub use rulers::RulerKind;
@@ -50,6 +52,7 @@ pub enum Tool {
     Gradient,
     Eyedropper,
     Ruler,
+    Transform,
     Panel,
     Balloon,
     Hand,
@@ -57,7 +60,7 @@ pub enum Tool {
 }
 
 impl Tool {
-    const ALL: [(Tool, &'static str, &'static str, Key); 11] = [
+    const ALL: [(Tool, &'static str, &'static str, Key); 12] = [
         (Tool::Brush, icons::PEN_NIB, "Brush (B)", Key::B),
         (Tool::Eraser, icons::ERASER, "Eraser (E)", Key::E),
         (Tool::Fill, icons::PAINT_BUCKET, "Fill (G)", Key::G),
@@ -74,6 +77,12 @@ impl Tool {
             icons::RULER,
             "Perspective & symmetry rulers (U)",
             Key::U,
+        ),
+        (
+            Tool::Transform,
+            icons::ARROWS_OUT_CARDINAL,
+            "Move & transform (V / Ctrl+T)",
+            Key::V,
         ),
         (Tool::Panel, icons::SQUARES_FOUR, "Panel frames (F)", Key::F),
         (
@@ -253,6 +262,12 @@ pub struct InkApp {
     // ---- animation ----
     pub anim_track: usize,
     rename_track: Option<(usize, String)>,
+    // ---- layers & images ----
+    pub transform: Option<transform::Transform>,
+    pub adjust: Option<adjust::AdjustDialog>,
+    pub rename_layer: Option<(LayerId, String)>,
+    shift_held: bool,
+    opacity_drag: Option<Vec<(LayerId, Layer)>>,
 }
 
 /// An autosave running on a background thread.
@@ -381,6 +396,11 @@ impl InkApp {
             reader: None,
             anim_track: 0,
             rename_track: None,
+            transform: None,
+            adjust: None,
+            rename_layer: None,
+            shift_held: false,
+            opacity_drag: None,
         }
     }
 
@@ -503,6 +523,15 @@ impl InkApp {
         self.frame_count += 1;
         self.handle_close_request(&ctx);
         self.shortcuts(&ctx, now);
+        // Switching tool or page finishes a transform, as in other painting apps.
+        if let Some(t) = &self.transform {
+            if self.tool != Tool::Transform
+                || self.book.as_ref().is_some_and(|b| b.current != t.page())
+            {
+                self.commit_transform();
+            }
+        }
+        self.handle_dropped_files(&ctx, now);
         self.autosave_tick(now);
         self.update_title(&ctx);
         let p = palette(ui);
@@ -594,6 +623,7 @@ impl InkApp {
                     self.settings.last_dir = Some(dlg.dir.clone());
                     match dlg.mode {
                         files::Mode::Open => self.open_file(&path, now),
+                        files::Mode::Image => self.import_image_file(&path, None, now),
                         files::Mode::Save => {
                             if self.save_to(&path, now) {
                                 if let Some(p) = pending {
@@ -610,6 +640,10 @@ impl InkApp {
             self.layout_name_dialog(&ctx);
         } else if self.book_info.is_some() {
             self.book_info_dialog(&ctx);
+        } else if self.adjust.is_some() {
+            self.adjust_dialog(&ctx);
+        } else if self.rename_layer.is_some() {
+            self.rename_layer_dialog(&ctx);
         } else if !self.recovery.is_empty() {
             self.recovery_dialog(&ctx, now);
         } else if let Some(pending) = self.confirm.clone() {
@@ -720,6 +754,8 @@ impl InkApp {
     }
 
     pub fn save_to(&mut self, path: &std::path::Path, now: f64) -> bool {
+        self.commit_transform();
+        self.close_adjust(true);
         let Some(book) = &mut self.book else {
             return false;
         };
@@ -1027,6 +1063,9 @@ impl InkApp {
 
     /// Finish a running autosave; start a new one when the interval has passed.
     fn autosave_tick(&mut self, now: f64) {
+        if self.transform.is_some() || self.adjust.is_some() {
+            return; // the layer is lifted out; wait until the edit is finished
+        }
         if self
             .autosave_job
             .as_ref()
@@ -1232,8 +1271,46 @@ impl InkApp {
             || !self.recovery.is_empty()
             || self.book_info.is_some()
             || self.reader.is_some()
+            || self.adjust.is_some()
+            || self.rename_layer.is_some()
         {
             return;
+        }
+        if self.transform.is_some() && !ctx.egui_wants_keyboard_input() {
+            let (enter, esc) = ctx.input_mut(|i| {
+                (
+                    i.consume_key(egui::Modifiers::NONE, Key::Enter),
+                    i.consume_key(egui::Modifiers::NONE, Key::Escape),
+                )
+            });
+            if enter {
+                self.commit_transform();
+            } else if esc {
+                self.cancel_transform();
+            }
+        }
+        if self.book.is_some() && !ctx.egui_wants_keyboard_input() {
+            let cmd = egui::Modifiers::COMMAND;
+            let (t, u, imp, dup) = ctx.input_mut(|i| {
+                (
+                    i.consume_key(cmd, Key::T),
+                    i.consume_key(cmd, Key::U),
+                    i.consume_key(cmd | egui::Modifiers::SHIFT, Key::I),
+                    i.consume_key(cmd, Key::J),
+                )
+            });
+            if t {
+                self.begin_transform(now);
+            }
+            if u {
+                self.open_adjust(now);
+            }
+            if imp {
+                self.import_image_dialog();
+            }
+            if dup {
+                self.duplicate_layer();
+            }
         }
         if self.book.is_some() && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, Key::F5)) {
             self.open_reader();
@@ -1385,12 +1462,17 @@ impl InkApp {
     }
 
     pub fn undo(&mut self) {
+        if self.transform.is_some() {
+            self.cancel_transform();
+            return;
+        }
         if let Some(b) = &mut self.book {
             let p = &mut b.pages[b.current];
             p.undo(&self.fonts);
         }
     }
     pub fn redo(&mut self) {
+        self.commit_transform();
         if let Some(b) = &mut self.book {
             let p = &mut b.pages[b.current];
             p.redo(&self.fonts);
@@ -1466,6 +1548,11 @@ impl InkApp {
                 }
                 if ui.add_enabled(has, egui::Button::new(format!("{}  (Ctrl+Shift+S)", tr("Save as…")))).clicked() {
                     self.save_as(None);
+                    ui.close();
+                }
+                ui.separator();
+                if ui.add_enabled(has, egui::Button::new(format!("{}  (Ctrl+Shift+I)", tr("Import image…")))).clicked() {
+                    self.import_image_dialog();
                     ui.close();
                 }
                 ui.separator();
@@ -1566,6 +1653,7 @@ impl InkApp {
                     }
                 }
             });
+            ui.menu_button(tr("Layer"), |ui| self.layer_menu(ui, now));
             ui.menu_button(tr("Book"), |ui| self.book_menu(ui));
             ui.menu_button(tr("Animation"), |ui| {
                 let anim = self.book.as_ref().is_some_and(|b| b.page().timeline.is_some());
@@ -1739,6 +1827,32 @@ impl InkApp {
                     RichText::new(tr("Click to pick · Alt + click with any painting tool"))
                         .color(p.text_muted),
                 );
+            }
+            Tool::Transform => {
+                ui.label(RichText::new(tr("Transform")).text_style(text::body_strong()));
+                if self.transform.is_some() {
+                    if ui
+                        .add(
+                            Button::new(tr("Apply (Enter)"))
+                                .variant(ButtonVariant::Primary)
+                                .size(ButtonSize::Sm),
+                        )
+                        .clicked()
+                    {
+                        self.commit_transform();
+                    }
+                    if ui
+                        .add(Button::new(tr("Cancel (Esc)")).size(ButtonSize::Sm))
+                        .clicked()
+                    {
+                        self.cancel_transform();
+                    }
+                } else {
+                    ui.label(
+                        RichText::new(tr("Click the canvas to move the selected layer"))
+                            .color(p.text_muted),
+                    );
+                }
             }
             Tool::Ruler => {
                 ui.label(RichText::new(tr("Ruler")).text_style(text::body_strong()));
@@ -1976,6 +2090,7 @@ impl InkApp {
                         }
                     }
                     Tool::Ruler => self.ruler_panel(ui),
+                    Tool::Transform => self.transform_actions(ui),
                     Tool::Fill | Tool::LassoFill | Tool::Gradient | Tool::Eyedropper | Tool::Hand | Tool::Rotate => {
                         let msg = match self.tool {
                             Tool::Fill => tr("Click inside line art. The color goes onto the selected layer; the shape is read from reference layers (Ink, Panels)."),
@@ -2133,6 +2248,7 @@ impl InkApp {
                     }
                     Tool::Balloon => self.balloon_text(ui),
                     Tool::Ruler => self.ruler_props(ui),
+                    Tool::Transform => self.transform_props(ui),
                     Tool::Gradient => {
                         ui.radio_value(&mut self.gradient_mode, coloring::GradientMode::MainToSub, tr("Main color → sub color"));
                         ui.radio_value(&mut self.gradient_mode, coloring::GradientMode::MainToTransparent, tr("Main color → transparent"));
@@ -2288,6 +2404,29 @@ impl InkApp {
     }
 
     fn layers_pane(&mut self, ui: &mut Ui) {
+        let mut layer_action: Option<u8> = None;
+        self.layers_pane_inner(ui, &mut layer_action);
+        let now = ui.input(|i| i.time);
+        match layer_action {
+            Some(1) => self.duplicate_layer(),
+            Some(2) => self.merge_down(now),
+            Some(3) => self.open_adjust(now),
+            Some(4) => {
+                self.begin_transform(now);
+            }
+            Some(5) => {
+                if let (Some(id), Some(b)) = (self.active_layer, &self.book) {
+                    if let Some(l) = b.page().doc.layer(id) {
+                        self.rename_layer = Some((id, l.props.name.clone()));
+                    }
+                }
+            }
+            Some(6) => self.import_image_dialog(),
+            _ => {}
+        }
+    }
+
+    fn layers_pane_inner(&mut self, ui: &mut Ui, layer_action: &mut Option<u8>) {
         let Some(b) = &mut self.book else { return };
         let page = &mut b.pages[b.current];
         let cel_ids: Vec<LayerId> = page
@@ -2315,20 +2454,43 @@ impl InkApp {
                                             .changed();
                                     }
                                 });
+                        });
+                        // Opacity: slider while dragging, one undo step when released.
+                        ui.horizontal(|ui| {
+                            ui.label(tr("Opacity"));
+                            ui.spacing_mut().slider_width = (ui.available_width() - 70.0).max(60.0);
                             let mut op = props.opacity as f32 / 2.55;
-                            if ui
-                                .add(
-                                    egui::DragValue::new(&mut op)
-                                        .range(0.0..=100.0)
-                                        .suffix(" %")
-                                        .max_decimals(0),
-                                )
-                                .changed()
-                            {
-                                props.opacity = (op * 2.55).round() as u8;
-                                changed = true;
+                            let r = ui.add(
+                                egui::Slider::new(&mut op, 0.0..=100.0)
+                                    .suffix(" %")
+                                    .max_decimals(0),
+                            );
+                            if r.changed() {
+                                if self.opacity_drag.is_none() {
+                                    self.opacity_drag = Some(page.doc.snapshot_layers());
+                                }
+                                if let Some(l) = page.doc.layer_mut(id) {
+                                    l.props.opacity = (op * 2.55).round() as u8;
+                                }
+                                page.doc.mark_all_dirty();
+                                page.touch();
+                            }
+                            if !r.dragged() && !r.has_focus() {
+                                if let Some(snap) = self.opacity_drag.take() {
+                                    page.push_doc(UndoEntry::Layers {
+                                        label: "Layer opacity".into(),
+                                        layers: snap,
+                                    });
+                                }
                             }
                         });
+                        if page
+                            .doc
+                            .layer(id)
+                            .is_some_and(|l| l.props.opacity != props.opacity)
+                        {
+                            props.opacity = page.doc.layer(id).unwrap().props.opacity;
+                        }
                         ui.horizontal_wrapped(|ui| {
                             changed |= ui.checkbox(&mut props.clip_below, tr("Clip")).changed();
                             changed |= ui.checkbox(&mut props.lock_alpha, tr("Lock α")).changed();
@@ -2385,6 +2547,69 @@ impl InkApp {
                             layers: snap,
                         });
                         self.active_layer = page.doc.layers().last().map(|l| l.0);
+                    }
+                    if ui
+                        .add_enabled(
+                            can_delete,
+                            IconButton::new(icons::COPY, tr("Duplicate layer (Ctrl+J)")).size(24.0),
+                        )
+                        .clicked()
+                    {
+                        *layer_action = Some(1);
+                    }
+                    if ui
+                        .add_enabled(
+                            can_delete,
+                            IconButton::new(icons::ARROW_LINE_DOWN, tr("Merge down")).size(24.0),
+                        )
+                        .clicked()
+                    {
+                        *layer_action = Some(2);
+                    }
+                    if ui
+                        .add_enabled(
+                            can_delete,
+                            IconButton::new(
+                                icons::SLIDERS_HORIZONTAL,
+                                tr("Adjust colors… (Ctrl+U)"),
+                            )
+                            .size(24.0),
+                        )
+                        .clicked()
+                    {
+                        *layer_action = Some(3);
+                    }
+                    if ui
+                        .add_enabled(
+                            can_delete,
+                            IconButton::new(
+                                icons::ARROWS_OUT_CARDINAL,
+                                tr("Move & transform (V / Ctrl+T)"),
+                            )
+                            .size(24.0),
+                        )
+                        .clicked()
+                    {
+                        *layer_action = Some(4);
+                    }
+                    if ui
+                        .add_enabled(
+                            active.is_some_and(|a| !page.is_object_layer(a)),
+                            IconButton::new(
+                                icons::PENCIL_SIMPLE,
+                                tr("Rename layer… (double-click)"),
+                            )
+                            .size(24.0),
+                        )
+                        .clicked()
+                    {
+                        *layer_action = Some(5);
+                    }
+                    if ui
+                        .add(IconButton::new(icons::IMAGE, tr("Import image…")).size(24.0))
+                        .clicked()
+                    {
+                        *layer_action = Some(6);
                     }
                     for (icon, label, dir) in [
                         (icons::ARROW_UP, "Move layer up", 1i32),
@@ -2454,6 +2679,12 @@ impl InkApp {
                             }
                             page.doc.mark_all_dirty();
                             page.touch();
+                        }
+                        LayerRowEvent::Rename => {
+                            self.active_layer = Some(id);
+                            if !page.is_object_layer(id) {
+                                self.rename_layer = Some((id, props.name.clone()));
+                            }
                         }
                         LayerRowEvent::ToggleLock => {
                             if let Some(l) = page.doc.layer_mut(id) {
@@ -2948,11 +3179,15 @@ impl InkApp {
             self.cache.gray = self.value_check;
             self.cache.clear();
         }
+        self.shift_held = ui.input(|i| i.modifiers.shift);
         if !hand
             && !rotating
             && self.new_sheet.is_none()
             && self.file_dialog.is_none()
             && self.confirm.is_none()
+            && self.adjust.is_none()
+            && self.rename_layer.is_none()
+            && self.book_info.is_none()
         {
             let events = ui.input(|i| i.events.clone());
             let blocked = ui.ctx().is_pointer_over_egui() && !resp.hovered() && !resp.dragged();
@@ -3135,6 +3370,11 @@ impl InkApp {
             _ => {}
         }
         self.paint_ruler(&painter, pointer.filter(|p| rect.contains(*p)));
+        let ctx2 = ui.ctx().clone();
+        self.paint_transform(&ctx2, &painter, pointer.filter(|p| rect.contains(*p)));
+        if self.transform.is_some() {
+            ui.ctx().request_repaint();
+        }
         if self.value_check {
             painter.text(
                 rect.left_top() + vec2(10.0, 10.0),
@@ -3255,6 +3495,7 @@ impl InkApp {
             Tool::Gradient => self.gradient_event(ev, now),
             Tool::Eyedropper => self.eyedropper_event(ev),
             Tool::Ruler => self.ruler_event(ev),
+            Tool::Transform => self.transform_event(ev, now),
             Tool::Hand | Tool::Rotate => {}
         }
     }
@@ -3591,6 +3832,7 @@ impl egui_dock::TabViewer for Viewer<'_> {
                     Tool::Gradient => tr("Gradient"),
                     Tool::Eyedropper => tr("Eyedropper"),
                     Tool::Ruler => tr("Rulers"),
+                    Tool::Transform => tr("Transform"),
                     Tool::Panel => tr("Panel templates"),
                     Tool::Balloon => tr("Balloon styles"),
                     Tool::Hand | Tool::Rotate => tr("Tool"),
@@ -3963,6 +4205,8 @@ mod tests {
             include_str!("app/book_ui.rs"),
             include_str!("app/reader.rs"),
             include_str!("app/timeline.rs"),
+            include_str!("app/transform.rs"),
+            include_str!("app/adjust.rs"),
             include_str!("book.rs"),
         ] {
             let src = &src[..src.find("#[cfg(test)]").unwrap_or(src.len())];

@@ -149,3 +149,7 @@ Story page numbering after front matter,manga,should,yes,app,
 Right-to-left reader with two-page spreads,manga,must,yes,app,F5; single/double
 "Multi-track animation timeline with ruler, scrubbing, hide/rename tracks",anim,must,yes,app,
 "Insert/delete frame, duplicate cel, onion range and opacity",anim,must,yes,app,
+Import images (PNG/JPEG/WebP/BMP/GIF/TIFF) as layers; drag and drop,layers,must,yes,app,
+"Transform tool: move, scale, rotate, flip with live preview",layers,must,yes,app,one undo step
+"Layer opacity slider, rename, duplicate, merge down",layers,must,yes,app,
+"Adjust colors: brightness/contrast, HSL, invert, threshold, posterize",layers,should,yes,app,live preview

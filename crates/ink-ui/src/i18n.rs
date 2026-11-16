@@ -976,6 +976,111 @@ const DE: &[(&str, &str)] = &[
         "{n} vanishing points · the orange line is the horizon",
         "{n} Fluchtpunkte · die orange Linie ist der Horizont",
     ),
+    // ---- images, transform, layer adjustments ----
+    ("Adjust colors", "Farben anpassen"),
+    ("Adjust colors…", "Farben anpassen…"),
+    ("Adjust colors… (Ctrl+U)", "Farben anpassen… (Strg+U)"),
+    ("Apply (Enter)", "Anwenden (Enter)"),
+    ("Brightness", "Helligkeit"),
+    ("Brightness & contrast", "Helligkeit & Kontrast"),
+    ("Cancel (Esc)", "Abbrechen (Esc)"),
+    (
+        "Click the canvas to move the selected layer",
+        "Auf die Leinwand klicken, um die gewählte Ebene zu bewegen",
+    ),
+    (
+        "Click the canvas to transform the selected layer, or import an image (File → Import image…, or drop a file on the window).",
+        "Auf die Leinwand klicken, um die gewählte Ebene zu transformieren, oder ein Bild importieren (Datei → Bild importieren… oder eine Datei aufs Fenster ziehen).",
+    ),
+    ("Contrast", "Kontrast"),
+    (
+        "Create or open a sheet first.",
+        "Lege zuerst ein Blatt an oder öffne eins.",
+    ),
+    (
+        "Drag inside to move, corners to scale, the round handle (or outside) to rotate. Shift: free scaling / 15° steps.",
+        "Innen ziehen zum Verschieben, an den Ecken zum Skalieren, am runden Griff (oder außerhalb) zum Drehen. Shift: freies Skalieren / 15°-Schritte.",
+    ),
+    (
+        "Drop images to import them as layers",
+        "Bilder loslassen, um sie als Ebenen zu importieren",
+    ),
+    ("Duplicate layer", "Ebene duplizieren"),
+    ("Duplicate layer (Ctrl+J)", "Ebene duplizieren (Strg+J)"),
+    ("Effects", "Effekte"),
+    ("Flip vertically", "Vertikal spiegeln"),
+    ("Height", "Höhe"),
+    ("Hue", "Farbton"),
+    (
+        "Hue, saturation, lightness",
+        "Farbton, Sättigung, Helligkeit",
+    ),
+    ("Image", "Bild"),
+    ("Import", "Importieren"),
+    ("Import image…", "Bild importieren…"),
+    ("Invert", "Umkehren"),
+    (
+        "Keep proportions (Shift toggles)",
+        "Proportionen beibehalten (Shift wechselt)",
+    ),
+    ("Lightness", "Luminanz"),
+    ("Merge down", "Mit darunterliegender zusammenführen"),
+    (
+        "Move & transform (V / Ctrl+T)",
+        "Verschieben & transformieren (V / Strg+T)",
+    ),
+    (
+        "No images here (PNG, JPEG, WebP, BMP, GIF, TIFF).",
+        "Hier sind keine Bilder (PNG, JPEG, WebP, BMP, GIF, TIFF).",
+    ),
+    ("OK", "OK"),
+    (
+        "Panel and balloon layers can't be merged.",
+        "Panel- und Sprechblasenebenen können nicht zusammengeführt werden.",
+    ),
+    ("Posterize", "Tontrennung"),
+    ("Rename layer", "Ebene umbenennen"),
+    ("Rename layer…", "Ebene umbenennen…"),
+    (
+        "Rename layer… (double-click)",
+        "Ebene umbenennen… (Doppelklick)",
+    ),
+    ("Rotate 90°", "Um 90° drehen"),
+    ("Saturation", "Sättigung"),
+    (
+        "Smooth (off for crisp 1-bit art)",
+        "Glätten (aus für scharfe 1-Bit-Grafik)",
+    ),
+    (
+        "This layer is empty: nothing to adjust.",
+        "Diese Ebene ist leer: nichts anzupassen.",
+    ),
+    (
+        "This layer is empty: nothing to transform.",
+        "Diese Ebene ist leer: nichts zu transformieren.",
+    ),
+    ("Threshold (black & white)", "Schwellenwert (Schwarz-Weiß)"),
+    ("Transform", "Transformieren"),
+    ("Transform selected layer", "Gewählte Ebene transformieren"),
+    ("Width", "Breite"),
+    (
+        "You can also drop image files (PNG, JPEG, WebP, BMP, GIF, TIFF) onto the window.",
+        "Du kannst Bilddateien (PNG, JPEG, WebP, BMP, GIF, TIFF) auch einfach aufs Fenster ziehen.",
+    ),
+    ("copy", "Kopie"),
+    ("levels", "Stufen"),
+    (
+        "Layer: {name} · changes show live on the canvas",
+        "Ebene: {name} · Änderungen sind sofort auf der Leinwand zu sehen",
+    ),
+    (
+        "Imported {f} ({w} × {h} px). Adjust it, then press Enter.",
+        "{f} importiert ({w} × {h} px). Anpassen, dann Enter drücken.",
+    ),
+    (
+        "Couldn't import the image: {e}",
+        "Bild konnte nicht importiert werden: {e}",
+    ),
 ];
 
 #[cfg(test)]
