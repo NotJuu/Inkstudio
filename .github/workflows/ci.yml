@@ -17,6 +17,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
       - run: cargo build --release -p ink-vector --example showcase
+      - name: Tablet backend attaches to a real X11 window (XInput2)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y xvfb
+          xvfb-run -a cargo run -p ink-tablet --example x11_attach
+      - name: Drive the app headless (pen, files, layouts, autosave, recovery)
+        run: cargo run --release -p inkstudio --example drive -- target/drive-shots
 
   design-tokens:
     runs-on: ubuntu-latest

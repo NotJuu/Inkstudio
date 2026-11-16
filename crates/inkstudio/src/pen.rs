@@ -70,6 +70,12 @@ impl PenInput {
                         self.last_pressure = s.pressure;
                     }
                     match phase {
+                        // The pointer press of the same pen contact arrived first (tablet
+                        // backends run beside winit): keep the stroke, now with pressure.
+                        TouchPhase::Start | TouchPhase::Move if self.down == Some(Source::Mouse) => {
+                            self.down = Some(Source::Pen);
+                            out.push(PenEvent::Move(s));
+                        }
                         TouchPhase::Start if inside(pos) => {
                             self.down = Some(Source::Pen);
                             out.push(PenEvent::Down(s));
@@ -98,6 +104,12 @@ impl PenInput {
                         self.down = None;
                         out.push(PenEvent::Up(s));
                     }
+                }
+                // Fallback: the pen's own "up" got lost; the pointer release still ends the stroke.
+                Event::PointerButton { pos, button: PointerButton::Primary, pressed: false, .. } if !pen_in_frame && self.down == Some(Source::Pen) => {
+                    let s = PenSample { pos, pressure: self.last.map_or(0.0, |l| l.pressure), time };
+                    self.down = None;
+                    out.push(PenEvent::Up(s));
                 }
                 Event::PointerMoved(pos) if !pen_in_frame && self.down == Some(Source::Mouse) => {
                     let p = self.mouse_pressure(pos, time);
@@ -161,6 +173,23 @@ mod tests {
         assert!(out.iter().all(|e| match e {
             PenEvent::Down(s) | PenEvent::Move(s) | PenEvent::Up(s) => s.pressure == 1.0,
         }));
+    }
+
+    #[test]
+    fn late_pen_events_take_over_a_mouse_stroke() {
+        let mut p = PenInput::default();
+        // Frame 1: winit's pointer press arrives before the tablet backend's sample.
+        let out = p.process(&[Event::PointerButton { pos: pos2(5.0, 10.0), button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE }], 0.0, |_| true);
+        assert!(matches!(out[0], PenEvent::Down(_)));
+        // Frame 2: the pen sample with pressure shows up — same stroke, now with pressure.
+        let out = p.process(&[touch(TouchPhase::Start, 6.0, 0.3), touch(TouchPhase::Move, 8.0, 0.5), Event::PointerMoved(pos2(8.0, 10.0))], 0.02, |_| true);
+        assert_eq!(out.len(), 2);
+        assert!(out.iter().all(|e| matches!(e, PenEvent::Move(_))));
+        assert!(matches!(out[1], PenEvent::Move(s) if (s.pressure - 0.5).abs() < 1e-6));
+        // The pen "up" never arrives; the pointer release still ends the stroke.
+        let out = p.process(&[Event::PointerButton { pos: pos2(8.0, 10.0), button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE }], 0.05, |_| true);
+        assert!(matches!(out[0], PenEvent::Up(_)));
+        assert!(!p.is_down());
     }
 
     #[test]

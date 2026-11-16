@@ -9,6 +9,8 @@ use std::sync::Arc;
 pub struct LayerId(pub u64);
 
 /// One page: a canvas size and a bottom-to-top layer stack.
+/// Cloning is cheap: tiles are shared until written (used for background saves).
+#[derive(Clone)]
 pub struct Document {
     pub width: u32,
     pub height: u32,

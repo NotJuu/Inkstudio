@@ -139,6 +139,8 @@ pub struct Page {
     redo_steps: Vec<Step>,
     /// Edits since the last save (window title shows •).
     pub dirty: bool,
+    /// Counts edits; lets a background save tell whether the page changed meanwhile.
+    pub generation: u64,
     pub panels: PanelSet,
     pub panel_layer: LayerId,
     pub balloons: Vec<Balloon>,
@@ -184,6 +186,7 @@ impl Page {
             steps: Vec::new(),
             redo_steps: Vec::new(),
             dirty: false,
+            generation: 0,
             panels,
             panel_layer,
             balloons: Vec::new(),
@@ -206,6 +209,7 @@ impl Page {
             steps: Vec::new(),
             redo_steps: Vec::new(),
             dirty: false,
+            generation: 0,
             panels: PanelSet::default(),
             panel_layer,
             balloons: Vec::new(),
@@ -216,6 +220,12 @@ impl Page {
             thumb_dirty: true,
             next_balloon: 0,
         }
+    }
+
+    /// Mark the page edited.
+    pub fn touch(&mut self) {
+        self.dirty = true;
+        self.generation += 1;
     }
 
     pub fn canvas(&self) -> (u32, u32) {
@@ -258,14 +268,14 @@ impl Page {
         self.steps.push(Step::Doc);
         self.redo_steps.clear();
         self.thumb_dirty = true;
-        self.dirty = true;
+        self.touch();
     }
 
     /// Record the comic objects *before* an edit.
     pub fn push_objects(&mut self) {
         self.steps.push(Step::Objects { panels: self.panels.clone(), balloons: self.balloons.clone() });
         self.redo_steps.clear();
-        self.dirty = true;
+        self.touch();
     }
 
     pub fn undo(&mut self, fonts: &Fonts) -> bool {
@@ -284,7 +294,7 @@ impl Page {
         };
         self.redo_steps.push(inverse);
         self.thumb_dirty = true;
-        self.dirty = true;
+        self.touch();
         true
     }
 
@@ -304,7 +314,7 @@ impl Page {
         };
         self.steps.push(inverse);
         self.thumb_dirty = true;
-        self.dirty = true;
+        self.touch();
         true
     }
 
@@ -332,13 +342,24 @@ pub struct Book {
     pub path: Option<std::path::PathBuf>,
     /// Page-level structure changed (pages added, removed, moved) since the last save.
     pub structure_dirty: bool,
+    pub structure_generation: u64,
+    /// Identifies this book's crash-recovery copy.
+    pub recovery_id: u64,
+}
+
+/// A fresh, practically unique id for recovery files.
+pub fn new_recovery_id() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(0);
+    (t ^ ((std::process::id() as u64) << 40)).wrapping_add(N.fetch_add(1, Ordering::Relaxed) * 0x9E37_79B9)
 }
 
 impl Book {
     pub fn new(settings: SheetSettings) -> Self {
         let n = if settings.kind == SheetKind::Book { settings.pages.max(1) } else { 1 };
         let pages = (0..n).map(|_| Page::new(&settings)).collect();
-        Self { settings, pages, current: 0, path: None, structure_dirty: false }
+        Self { settings, pages, current: 0, path: None, structure_dirty: false, structure_generation: 0, recovery_id: new_recovery_id() }
     }
 
     pub fn page(&self) -> &Page {
@@ -353,6 +374,7 @@ impl Book {
         s.template = self.settings.template;
         self.pages.insert(at.min(self.pages.len()), Page::new(&s));
         self.structure_dirty = true;
+        self.structure_generation += 1;
     }
 
     /// Unsaved changes anywhere in the book.
@@ -360,11 +382,17 @@ impl Book {
         self.structure_dirty || self.pages.iter().any(|p| p.dirty)
     }
 
+    /// Total edit count (changes whenever anything is edited).
+    pub fn generation(&self) -> u64 {
+        self.structure_generation + self.pages.iter().map(|p| p.generation).sum::<u64>()
+    }
+
     pub fn delete_page(&mut self, i: usize) {
         if self.pages.len() > 1 && i < self.pages.len() {
             self.pages.remove(i);
             self.current = self.current.min(self.pages.len() - 1);
             self.structure_dirty = true;
+            self.structure_generation += 1;
         }
     }
 
@@ -374,6 +402,7 @@ impl Book {
             self.pages.insert(to, p);
             self.current = to;
             self.structure_dirty = true;
+            self.structure_generation += 1;
         }
     }
 }

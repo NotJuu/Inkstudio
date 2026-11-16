@@ -37,19 +37,51 @@ cargo run --release -p inkstudio
 
 Zoom, rotation and mirroring keep the point under the cursor in place. Drawing, balloons and panels all work on a rotated or mirrored canvas.
 
+### Pen tablets
+
+| platform | how pressure gets in |
+| --- | --- |
+| Windows | Windows Ink through winit |
+| macOS | `NSEvent` local monitor reads pressure and tilt of tablet events (Wacom, Huion, XP-Pen, Sidecar) before winit sees them |
+| Linux X11 | XInput2 motion valuators ("Abs Pressure", "Abs Tilt X/Y") on our own X connection |
+| Linux Wayland | `zwp_tablet_v2` on the app's display; samples also drive the UI pointer, because compositors stop emulating it for tablet clients |
+
+The backends live in `ink-tablet`. They feed samples into egui as pen events with force, the same shape Windows Ink uses. A pen contact whose pointer event arrives a moment earlier simply continues as a pressure stroke. The status bar shows which backend is active.
+
+> Tested here: unit tests for each backend's data handling, the macOS backend compiles for `aarch64-apple-darwin`, and the X11 backend attaches to a real window under Xvfb (also in CI). Not yet tested on physical tablets on macOS or Linux. Please report how your tablet behaves.
+
+### Autosave and recovery
+
+- Every 1, 3 (default), 5 or 10 minutes, or off (*File → Autosave*). The snapshot takes almost no time on the UI thread, because tiles are shared copy-on-write. Writing happens on a background thread.
+- Autosave writes a recovery copy. Optionally it also writes the project file. A book is only marked saved if nothing changed while it was being written.
+- After a crash, the next start offers each unsaved work: *Recover*, *Discard* or *Later*. Saving or choosing *Don't save* removes the copy.
+
+### Layouts
+
+| layout | for |
+| --- | --- |
+| Standard | everything visible |
+| Manga & inking | brushes left, big layer list right, page strip below |
+| Lettering & balloons | wide balloon picker and a tall text editor |
+| Animation | tall timeline, color and cels on the right |
+| Illustration & painting | large color palette, no page strip or timeline |
+| Canvas focus | maximum canvas, one tab stack |
+
+*Window → Layouts*: each layout remembers its own arrangement. *Save layout as…* creates your own, and *Reset layout* restores a built-in default. With *Switch layout by sheet type* on, opening a manga page, book, animation or illustration switches to its layout, and the app remembers your last choice per sheet type.
+
 ### Files, palettes, languages
 
 - **Project files (`.inks`)**: SQLite with LZ4-compressed tiles. Stores every page, layer, panel, balloon and the animation timeline. Saving writes a new file and swaps it in, so a crash can't corrupt a project. Ctrl+S / Ctrl+Shift+S / Ctrl+O, recent files, a • marker and a prompt for unsaved changes (also when closing the window).
 - **Dockable palettes**: Sub tool, Tool property, Color, Layer, Navigator, Pages and Timeline are tabs you can drag to dock, split, stack or float. *Window* shows or hides them; *Reset layout* restores the default. The layout is saved in the settings.
 - **English / Deutsch**: *Language* menu. It follows the system language by default and is remembered. A test fails if any UI string lacks a German translation.
 
-- **Pen input.** Every pen sample of a frame is used, not just one per frame. Real pen pressure works on Windows (Windows Ink via winit). On macOS and Linux, winit 0.30 does not deliver tablet pressure, so pens act like a mouse; *View → Simulate pressure for mouse* derives pressure from speed. Native tablet backends for macOS and Linux are planned.
+- **Pen input.** Every pen sample of a frame is used, not just one per frame. Pressure works on Windows, macOS, X11 and Wayland (see *Pen tablets*). For a mouse, *View → Simulate pressure for mouse* derives pressure from speed.
 - **Canvas.** GPU tiles with 4 levels of detail: only visible tiles are uploaded, and only changed tiles are refreshed. Wheel/pinch zoom at the cursor, Space or middle-drag to pan.
 - **Tools.** 54 brushes and erasers, fill (refer to line art, close gaps), panel frames (draw, divide with gutter, 7 templates), balloons and text, hand.
 - **Layers.** Blend modes, opacity, clipping, alpha lock, reference and draft layers, add/delete/reorder. Everything is undoable, including panel and balloon edits.
 - **Export.** PNG per page in color, grayscale or true 1-bit, and animated GIF.
 
-`cargo run --release -p inkstudio --example drive` drives the real UI headless. It draws with synthetic pen events (pressure), places balloons with mouse clicks, types Japanese text with key events, drags a tail, saves with Ctrl+S through the file dialog, switches to German, rotates and mirrors the view and keeps drawing, floats a palette, triggers the unsaved-changes prompt, reopens the file with Ctrl+O in a fresh app and checks the content, builds an animation, exports, and writes the screenshots above.
+`cargo run --release -p inkstudio --example drive` drives the real UI headless. It switches layouts, saves a user layout, autosaves, simulates a crash and recovers, and also draws with synthetic pen events (pressure), places balloons with mouse clicks, types Japanese text with key events, drags a tail, saves with Ctrl+S through the file dialog, switches to German, rotates and mirrors the view and keeps drawing, floats a palette, triggers the unsaved-changes prompt, reopens the file with Ctrl+O in a fresh app and checks the content, builds an animation, exports, and writes the screenshots above.
 
 ## What makes it a manga tool
 
@@ -71,7 +103,8 @@ Zoom, rotation and mirroring keep the point under the cursor in place. Drawing, 
 | Multi-page books with binding direction | `inkstudio::book` | app ✔ |
 | Animation: cels, holds, blanks, onion skin, playback, GIF | `ink-anim` | app ✔ |
 | Project files (.inks), dockable palettes, rotate/mirror view, English/German | `ink-io`, `inkstudio` | app ✔ |
-| 3D mannequin, material packs, rulers in the UI, native tablet pressure on macOS/Linux | `replica/architecture.md` | planned |
+| Pen pressure on macOS, X11, Wayland; autosave + crash recovery; workspace layouts | `ink-tablet`, `inkstudio` | app ✔ |
+| 3D mannequin, material packs, rulers in the UI | `replica/architecture.md` | planned |
 
 ## Brushes
 
@@ -123,6 +156,7 @@ crates/
   ink-comic    panel frames, speech balloons, horizontal/vertical lettering
   ink-anim     timeline, cels, onion skin, GIF export
   ink-io       .inks project files (SQLite + LZ4 tiles)
+  ink-tablet   pen pressure/tilt on macOS (NSEvent), X11 (XInput2), Wayland (tablet-v2)
   ink-ui       design tokens, theme and egui widgets (see replica/design)
   inkstudio    the app: window, canvas, pen input, tools, palettes, dialogs
 replica/       recon, architecture, schema, design system, feature matrix

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Settings {
     /// "en" / "de"; None = follow the system.
     pub lang: Option<String>,
@@ -13,6 +13,58 @@ pub struct Settings {
     #[serde(default)]
     pub dock_ron: Option<String>,
     pub last_dir: Option<PathBuf>,
+    /// Autosave interval in seconds (0 = off).
+    #[serde(default = "default_autosave")]
+    pub autosave_secs: u32,
+    /// Autosave also writes the project file (otherwise only a recovery copy).
+    #[serde(default)]
+    pub autosave_project: bool,
+    /// Workspace layout in use (built-in id or "custom:<name>").
+    #[serde(default = "default_layout")]
+    pub active_layout: String,
+    /// Saved dock state (RON) per layout id. Built-ins without an entry use their default.
+    #[serde(default)]
+    pub layouts: std::collections::BTreeMap<String, String>,
+    /// User layouts, in creation order.
+    #[serde(default)]
+    pub custom_layouts: Vec<String>,
+    /// Switch layout when a sheet of another kind is opened.
+    #[serde(default = "yes")]
+    pub auto_layout: bool,
+    /// Layout chosen last for each sheet kind (kind key → layout id).
+    #[serde(default)]
+    pub kind_layouts: std::collections::BTreeMap<String, String>,
+}
+
+fn default_layout() -> String {
+    crate::layouts::STANDARD.into()
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn default_autosave() -> u32 {
+    180
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            lang: None,
+            recent: Vec::new(),
+            simulate_pressure: false,
+            dock_ron: None,
+            last_dir: None,
+            autosave_secs: default_autosave(),
+            autosave_project: false,
+            active_layout: default_layout(),
+            layouts: Default::default(),
+            custom_layouts: Vec::new(),
+            auto_layout: true,
+            kind_layouts: Default::default(),
+        }
+    }
 }
 
 /// Platform config folder (override with INKSTUDIO_CONFIG_DIR).

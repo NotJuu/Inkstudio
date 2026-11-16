@@ -1,14 +1,14 @@
 feature,area,priority,original,clone,notes
 Native desktop window (Win/macOS/Linux),platform,must,yes,app,Rust; no webview / Tauri
-Pen pressure input,input,must,yes,partial,real pressure on Windows (winit pen events); macOS/Linux need native tablet backends
-Pen tilt and barrel rotation,input,should,yes,no,
+Pen pressure input,input,must,yes,app,Windows Ink (winit); macOS NSEvent; X11 XInput2; Wayland tablet-v2 (ink-tablet)
+Pen tilt and barrel rotation,input,should,yes,partial,tilt read on macOS/X11/Wayland; not yet used by brushes
 Mouse/trackpad drawing fallback,input,must,yes,app,
 Customizable keyboard shortcuts,input,should,yes,no,S27
 Modifier-key tool switching (temporary eyedropper/hand),input,must,yes,no,
 New canvas dialog with use presets (illustration/comic/animation),file,must,yes,app,S02
 Start screen with recent files,file,should,yes,partial,recent files in File menu and open dialog
 Own native project file format,file,must,yes,app,"SQLite + LZ4 tiles, atomic save"
-Autosave and crash recovery,file,must,yes,partial,atomic saves; no autosave yet
+Autosave and crash recovery,file,must,yes,app,"background snapshot saves, recovery dialog"
 PNG/JPG export,file,must,yes,partial,PNG color/gray/1-bit; JPG pending
 PSD import/export with layers,file,should,yes,no,
 PDF export (multi-page),file,should,yes,no,EX: export multiple pages
@@ -107,7 +107,7 @@ Export GIF,animation,must,yes,app,
 Export PNG sequence,animation,must,yes,no,
 Export MP4,animation,should,yes,no,needs encoder
 Dockable / floating palettes,ui,must,yes,app,"egui_dock, layout saved"
-Saved workspace layouts,ui,should,yes,partial,one saved layout + reset
+Saved workspace layouts,ui,should,yes,app,"6 built-ins + user layouts, per-kind auto switch"
 Quick access palette,ui,could,yes,no,
 Dark and light UI themes,ui,should,yes,no,
 Preferences (pressure calibration/cursor/performance),ui,must,yes,no,S26

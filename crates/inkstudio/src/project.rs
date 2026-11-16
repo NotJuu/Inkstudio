@@ -25,13 +25,22 @@ struct WorkData {
     current: usize,
 }
 
-pub fn save(book: &mut Book, path: &Path) -> Result<(), ink_io::Error> {
+/// Everything needed to write a book, detached from it (documents share tiles with the
+/// live book, so taking a snapshot is cheap and the write can run on another thread).
+pub struct Snapshot {
+    work: String,
+    pages: Vec<(String, ink_core::Document)>,
+    /// `Book::generation()` at snapshot time.
+    pub generation: u64,
+}
+
+pub fn snapshot(book: &Book) -> Result<Snapshot, ink_io::Error> {
     let work = serde_json::to_string(&WorkData { settings: book.settings.clone(), current: book.current })?;
-    let datas: Vec<String> = book
+    let pages = book
         .pages
         .iter()
         .map(|p| {
-            serde_json::to_string(&PageData {
+            let json = serde_json::to_string(&PageData {
                 panels: p.panels.clone(),
                 balloons: p.balloons.clone(),
                 timeline: p.timeline.clone(),
@@ -39,16 +48,36 @@ pub fn save(book: &mut Book, path: &Path) -> Result<(), ink_io::Error> {
                 panel_layer: p.panel_layer,
                 balloon_layer: p.balloon_layer,
                 ink_layer: p.ink_layer,
-            })
+            })?;
+            Ok((json, p.doc.clone()))
         })
-        .collect::<Result<_, _>>()?;
-    let pages: Vec<ink_io::PageOut> = book.pages.iter().zip(datas).map(|(p, json)| ink_io::PageOut { json, doc: &p.doc }).collect();
-    ink_io::save(path, &work, &pages, env!("CARGO_PKG_VERSION"))?;
-    book.path = Some(path.to_path_buf());
-    book.structure_dirty = false;
-    for p in &mut book.pages {
-        p.dirty = false;
+        .collect::<Result<_, ink_io::Error>>()?;
+    Ok(Snapshot { work, pages, generation: book.generation() })
+}
+
+impl Snapshot {
+    pub fn write(&self, path: &Path) -> Result<(), ink_io::Error> {
+        let pages: Vec<ink_io::PageOut> = self.pages.iter().map(|(json, doc)| ink_io::PageOut { json: json.clone(), doc }).collect();
+        ink_io::save(path, &self.work, &pages, env!("CARGO_PKG_VERSION"))
     }
+}
+
+/// After a successful write of `snap` to `path`: remember the path and, if nothing changed
+/// since the snapshot, mark the book clean.
+pub fn mark_saved(book: &mut Book, path: &Path, generation: u64) {
+    book.path = Some(path.to_path_buf());
+    if book.generation() == generation {
+        book.structure_dirty = false;
+        for p in &mut book.pages {
+            p.dirty = false;
+        }
+    }
+}
+
+pub fn save(book: &mut Book, path: &Path) -> Result<(), ink_io::Error> {
+    let snap = snapshot(book)?;
+    snap.write(path)?;
+    mark_saved(book, path, snap.generation);
     Ok(())
 }
 
@@ -69,7 +98,7 @@ pub fn open(path: &Path) -> Result<Book, ink_io::Error> {
         return Err(ink_io::Error::Corrupt("no pages".into()));
     }
     let current = work.current.min(pages.len() - 1);
-    Ok(Book { settings: work.settings, pages, current, path: Some(path.to_path_buf()), structure_dirty: false })
+    Ok(Book { settings: work.settings, pages, current, path: Some(path.to_path_buf()), structure_dirty: false, structure_generation: 0, recovery_id: crate::book::new_recovery_id() })
 }
 
 impl Page {

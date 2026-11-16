@@ -7,7 +7,7 @@ use crate::new_sheet::{NewSheet, Outcome};
 use crate::pen::{PenEvent, PenInput, PenSample};
 use crate::settings::Settings;
 use egui::{Align2, Color32, Key, Pos2, Rect, RichText, Stroke, Ui, ViewportCommand, pos2, vec2};
-use egui_dock::{DockArea, DockState, NodeIndex};
+use egui_dock::{DockArea, DockState};
 use ink_comic::{Balloon, BalloonHit, BalloonStyle, Fonts, PanelTemplate, TailStyle, TextDir};
 use ink_core::{blend::BlendMode, Layer, LayerId, Rgba, UndoEntry};
 use ink_raster::fill::{FillOptions, Refer};
@@ -86,14 +86,7 @@ impl Pane {
 
 /// The default arrangement: tools left, color/navigator/layers right, pages + timeline below.
 pub fn default_dock() -> DockState<Pane> {
-    let mut d = DockState::new(vec![Pane::Canvas]);
-    let s = d.main_surface_mut();
-    let [center, left] = s.split_left(NodeIndex::root(), 0.17, vec![Pane::SubTool]);
-    s.split_below(left, 0.55, vec![Pane::ToolProperty]);
-    let [center, right] = s.split_right(center, 0.79, vec![Pane::Color, Pane::Navigator]);
-    s.split_below(right, 0.36, vec![Pane::Layers]);
-    s.split_below(center, 0.80, vec![Pane::Pages, Pane::Timeline]);
-    d
+    crate::layouts::builtin(crate::layouts::STANDARD).expect("standard layout")
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -175,6 +168,26 @@ pub struct InkApp {
     title: String,
     pub canvas_rect: Rect,
     rotate_drag: Option<f32>,
+    /// Name of the attached tablet backend (macOS / Linux), for the status bar.
+    pub tablet_name: Option<&'static str>,
+    // ---- autosave ----
+    autosave_job: Option<AutosaveJob>,
+    frame_time: f64,
+    last_autosave: f64,
+    /// UI time of the last finished autosave (status bar).
+    pub autosaved_at: Option<f64>,
+    /// Recovery copies found at start-up, offered in a dialog.
+    pub recovery: Vec<crate::recovery::Entry>,
+    /// Name being typed in the "Save layout as" dialog.
+    pub layout_name: Option<String>,
+}
+
+/// An autosave running on a background thread.
+struct AutosaveJob {
+    handle: std::thread::JoinHandle<Result<(), String>>,
+    generation: u64,
+    project: Option<PathBuf>,
+    recovery_id: u64,
 }
 
 fn to_rgba(c: Color32) -> Rgba {
@@ -191,12 +204,18 @@ impl InkApp {
         let settings = Settings::load_from(&config_dir);
         let lang = settings.lang.as_deref().and_then(Lang::from_code).unwrap_or_else(i18n::system_lang);
         i18n::set_lang(lang);
-        let dock = settings.dock_ron.as_deref().and_then(|s| ron::from_str::<DockState<Pane>>(s).ok()).filter(|d| d.find_tab(&Pane::Canvas).is_some()).unwrap_or_else(default_dock);
+        let mut settings = settings;
+        // Older settings kept a single layout; it becomes the saved state of "standard".
+        if let Some(old) = settings.dock_ron.take() {
+            settings.layouts.entry(crate::layouts::STANDARD.into()).or_insert(old);
+        }
+        let dock = load_layout(&settings, &settings.active_layout.clone());
+        let recovery = crate::recovery::list(&config_dir);
         let mut pen = PenInput::default();
         pen.simulate = settings.simulate_pressure;
         Self {
             book: None,
-            new_sheet: Some(NewSheet::new(false)),
+            new_sheet: if recovery.is_empty() { Some(NewSheet::new(false)) } else { None },
             fonts: Fonts::system(),
             view: View::default(),
             fit_pending: true,
@@ -248,6 +267,13 @@ impl InkApp {
             title: String::new(),
             canvas_rect: Rect::NOTHING,
             rotate_drag: None,
+            tablet_name: None,
+            autosave_job: None,
+            frame_time: 0.0,
+            last_autosave: 0.0,
+            autosaved_at: None,
+            recovery,
+            layout_name: None,
         }
     }
 
@@ -261,8 +287,16 @@ impl InkApp {
         if let Some(tl) = &book.page().timeline {
             self.active_layer = tl.cel_at(0, book.page().frame).or(self.active_layer);
         }
+        let kind = book.settings.kind;
         self.book = Some(book);
         self.new_sheet = None;
+        self.last_autosave = self.frame_time;
+        if self.settings.auto_layout {
+            let id = self.settings.kind_layouts.get(crate::layouts::kind_key(kind)).cloned().unwrap_or_else(|| crate::layouts::for_kind(kind).to_string());
+            if id != self.settings.active_layout && self.layout_exists(&id) {
+                self.switch_layout(&id);
+            }
+        }
         self.fit_pending = true;
         self.cache.clear();
         self.thumbs.clear();
@@ -329,9 +363,11 @@ impl InkApp {
     pub fn ui(&mut self, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
         let now = ctx.input(|i| i.time);
+        self.frame_time = now;
         self.frame_count += 1;
         self.handle_close_request(&ctx);
         self.shortcuts(&ctx, now);
+        self.autosave_tick(now);
         self.update_title(&ctx);
         let p = palette(ui);
 
@@ -396,6 +432,10 @@ impl InkApp {
                 files::Outcome::Cancel => self.file_dialog = None,
                 files::Outcome::Open => {}
             }
+        } else if self.layout_name.is_some() {
+            self.layout_name_dialog(&ctx);
+        } else if !self.recovery.is_empty() {
+            self.recovery_dialog(&ctx, now);
         } else if let Some(pending) = self.confirm.clone() {
             self.unsaved_prompt(&ctx, pending, now);
         }
@@ -428,12 +468,7 @@ impl InkApp {
     fn persist_settings(&mut self) {
         // The dock layout changes by dragging; compare now and then, not every frame.
         if self.frame_count % 30 == 0 {
-            let s = ron::to_string(&self.dock).unwrap_or_default();
-            if s != self.dock_saved {
-                self.settings.dock_ron = Some(s.clone());
-                self.dock_saved = s;
-                self.settings_dirty = true;
-            }
+            self.store_layout();
         }
         if self.settings_dirty {
             self.settings.simulate_pressure = self.pen.simulate;
@@ -501,6 +536,10 @@ impl InkApp {
                 self.settings_dirty = true;
                 let f = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                 self.toast(ToastKind::Success, trf("Saved {f}", &[("f", f)]), now);
+                if let Some(b) = &self.book {
+                    crate::recovery::remove(&self.config_dir, b.recovery_id);
+                }
+                self.last_autosave = now;
                 true
             }
             Err(e) => {
@@ -557,16 +596,324 @@ impl InkApp {
                     self.save_as(Some(pending));
                 }
             }
-            2 => self.proceed(pending, now),
+            2 => {
+                if let Some(b) = &self.book {
+                    crate::recovery::remove(&self.config_dir, b.recovery_id);
+                }
+                self.proceed(pending, now)
+            }
             3 => self.confirm = None,
             _ => {}
+        }
+    }
+
+    // ---- workspace layouts -------------------------------------------------------------------------
+
+    fn layout_exists(&self, id: &str) -> bool {
+        crate::layouts::is_builtin(id) || self.settings.custom_layouts.iter().any(|n| crate::layouts::custom_id(n) == id)
+    }
+
+    /// Remember the current dock state as the active layout's state.
+    fn store_layout(&mut self) {
+        let s = ron::to_string(&self.dock).unwrap_or_default();
+        if s != self.dock_saved {
+            self.settings.layouts.insert(self.settings.active_layout.clone(), s.clone());
+            self.dock_saved = s;
+            self.settings_dirty = true;
+        }
+    }
+
+    /// Switch to another layout; the current one keeps its arrangement.
+    pub fn switch_layout(&mut self, id: &str) {
+        self.store_layout();
+        self.dock = load_layout(&self.settings, id);
+        self.settings.active_layout = id.to_string();
+        self.dock_saved = ron::to_string(&self.dock).unwrap_or_default();
+        if let Some(b) = &self.book {
+            self.settings.kind_layouts.insert(crate::layouts::kind_key(b.settings.kind).into(), id.to_string());
+        }
+        self.settings_dirty = true;
+    }
+
+    /// Save the current arrangement as a new user layout and make it active.
+    pub fn save_layout_as(&mut self, name: &str) -> bool {
+        let name = name.trim();
+        if name.is_empty() {
+            return false;
+        }
+        let id = crate::layouts::custom_id(name);
+        if !self.settings.custom_layouts.iter().any(|n| n == name) {
+            self.settings.custom_layouts.push(name.to_string());
+        }
+        self.settings.layouts.insert(id.clone(), ron::to_string(&self.dock).unwrap_or_default());
+        self.settings.active_layout = id;
+        self.dock_saved = ron::to_string(&self.dock).unwrap_or_default();
+        self.settings_dirty = true;
+        true
+    }
+
+    pub fn delete_layout(&mut self, name: &str) {
+        let id = crate::layouts::custom_id(name);
+        self.settings.custom_layouts.retain(|n| n != name);
+        self.settings.layouts.remove(&id);
+        self.settings.kind_layouts.retain(|_, v| *v != id);
+        if self.settings.active_layout == id {
+            self.settings.active_layout = crate::layouts::STANDARD.into();
+            self.dock = load_layout(&self.settings, crate::layouts::STANDARD);
+            self.dock_saved = ron::to_string(&self.dock).unwrap_or_default();
+        }
+        self.settings_dirty = true;
+    }
+
+    /// Restore the active built-in layout's default arrangement.
+    pub fn reset_layout(&mut self) {
+        let id = self.settings.active_layout.clone();
+        if let Some(d) = crate::layouts::builtin(&id) {
+            self.settings.layouts.remove(&id);
+            self.dock = d;
+            self.dock_saved = ron::to_string(&self.dock).unwrap_or_default();
+            self.settings_dirty = true;
+        }
+    }
+
+    fn layouts_menu(&mut self, ui: &mut Ui) {
+        let p = palette(ui);
+        ui.label(RichText::new(tr("Layouts")).color(p.text_muted));
+        let active = self.settings.active_layout.clone();
+        for (id, name) in crate::layouts::BUILTIN {
+            if ui.radio(active == id, tr(name)).clicked() {
+                self.switch_layout(id);
+                ui.close();
+            }
+        }
+        for name in self.settings.custom_layouts.clone() {
+            let id = crate::layouts::custom_id(&name);
+            if ui.radio(active == id, &name).clicked() {
+                self.switch_layout(&id);
+                ui.close();
+            }
+        }
+        ui.separator();
+        if ui.button(tr("Save layout as…")).clicked() {
+            self.layout_name = Some(String::new());
+            ui.close();
+        }
+        let builtin = crate::layouts::is_builtin(&active);
+        if ui.add_enabled(builtin, egui::Button::new(tr("Reset layout"))).clicked() {
+            self.reset_layout();
+            ui.close();
+        }
+        if !self.settings.custom_layouts.is_empty() {
+            ui.menu_button(tr("Delete layout"), |ui| {
+                for name in self.settings.custom_layouts.clone() {
+                    if ui.button(&name).clicked() {
+                        self.delete_layout(&name);
+                        ui.close();
+                    }
+                }
+            });
+        }
+        if ui.checkbox(&mut self.settings.auto_layout, tr("Switch layout by sheet type")).changed() {
+            self.settings_dirty = true;
+        }
+    }
+
+    fn layout_name_dialog(&mut self, ctx: &egui::Context) {
+        let p = theme::palette_ctx(ctx);
+        let Some(name) = &mut self.layout_name else { return };
+        let mut done = None;
+        egui::Modal::new(egui::Id::new("layout-name")).frame(modal_frame(p)).show(ctx, |ui| {
+            ui.set_width(360.0);
+            ui.label(RichText::new(tr("Save layout as…")).text_style(text::title()));
+            ui.add_space(8.0);
+            let r = ui.add(egui::TextEdit::singleline(name).hint_text(tr("Layout name")).desired_width(f32::INFINITY));
+            if !r.has_focus() && name.is_empty() {
+                r.request_focus();
+            }
+            ui.add_space(12.0);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.x = 8.0;
+                if ui.add_enabled(!name.trim().is_empty(), Button::new(tr("Save")).variant(ButtonVariant::Primary).min_width(80.0)).clicked() {
+                    done = Some(true);
+                }
+                if ui.add(Button::new(tr("Cancel")).min_width(80.0)).clicked() {
+                    done = Some(false);
+                }
+            });
+            if ui.input(|i| i.key_pressed(Key::Enter)) && !name.trim().is_empty() {
+                done = Some(true);
+            }
+            if ui.input(|i| i.key_pressed(Key::Escape)) {
+                done = Some(false);
+            }
+        });
+        match done {
+            Some(true) => {
+                let n = self.layout_name.take().unwrap_or_default();
+                self.save_layout_as(&n);
+            }
+            Some(false) => self.layout_name = None,
+            None => {}
+        }
+    }
+
+    // ---- autosave & recovery -------------------------------------------------------------------
+
+    /// Finish a running autosave; start a new one when the interval has passed.
+    fn autosave_tick(&mut self, now: f64) {
+        if self.autosave_job.as_ref().is_some_and(|j| j.handle.is_finished()) {
+            let job = self.autosave_job.take().unwrap();
+            match job.handle.join() {
+                Ok(Ok(())) => {
+                    self.autosaved_at = Some(now);
+                    if let (Some(path), Some(book)) = (&job.project, &mut self.book) {
+                        if book.recovery_id == job.recovery_id {
+                            crate::project::mark_saved(book, path, job.generation);
+                            if !book.is_dirty() {
+                                crate::recovery::remove(&self.config_dir, job.recovery_id);
+                            }
+                        }
+                    }
+                }
+                Ok(Err(e)) => self.toast(ToastKind::Error, trf("Autosave failed: {e}", &[("e", e)]), now),
+                Err(_) => self.toast(ToastKind::Error, trf("Autosave failed: {e}", &[("e", "panic".into())]), now),
+            }
+        }
+        let secs = self.settings.autosave_secs;
+        let busy = self.autosave_job.is_some() || self.stroke.is_some() || self.balloon_drag.is_some();
+        let Some(book) = &self.book else { return };
+        if secs == 0 || busy || !book.is_dirty() || now - self.last_autosave < secs as f64 {
+            return;
+        }
+        self.last_autosave = now;
+        // Snapshot on the UI thread (cheap: tiles are shared), write on a worker thread.
+        let snap = match crate::project::snapshot(book) {
+            Ok(s) => s,
+            Err(e) => {
+                self.toast(ToastKind::Error, trf("Autosave failed: {e}", &[("e", e.to_string())]), now);
+                return;
+            }
+        };
+        let generation = snap.generation;
+        let note = crate::recovery::Note { id: book.recovery_id, name: self.book_name(), original: book.path.clone(), saved_at: crate::recovery::now_secs() };
+        let project = if self.settings.autosave_project { book.path.clone() } else { None };
+        let config = self.config_dir.clone();
+        let target = project.clone();
+        let recovery_id = note.id;
+        let handle = std::thread::Builder::new()
+            .name("autosave".into())
+            .spawn(move || {
+                let rec = crate::recovery::file(&config, note.id);
+                std::fs::create_dir_all(crate::recovery::dir(&config)).map_err(|e| e.to_string())?;
+                snap.write(&rec).map_err(|e| e.to_string())?;
+                crate::recovery::write_note(&config, &note).map_err(|e| e.to_string())?;
+                if let Some(p) = target {
+                    snap.write(&p).map_err(|e| e.to_string())?;
+                }
+                Ok(())
+            });
+        match handle {
+            Ok(handle) => self.autosave_job = Some(AutosaveJob { handle, generation, project, recovery_id }),
+            Err(e) => self.toast(ToastKind::Error, trf("Autosave failed: {e}", &[("e", e.to_string())]), now),
+        }
+    }
+
+    /// Wait for a running autosave (tests and quitting).
+    pub fn finish_autosave(&mut self, now: f64) {
+        if let Some(job) = &self.autosave_job {
+            while !job.handle.is_finished() {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        }
+        let interval = self.settings.autosave_secs;
+        self.settings.autosave_secs = 0;
+        self.autosave_tick(now);
+        self.settings.autosave_secs = interval;
+    }
+
+    /// Restore a recovery copy as an unsaved book.
+    pub fn recover(&mut self, i: usize, now: f64) {
+        if i >= self.recovery.len() {
+            return;
+        }
+        let e = self.recovery.remove(i);
+        match crate::project::open(&e.file) {
+            Ok(mut book) => {
+                book.path = e.note.original.clone();
+                book.recovery_id = e.note.id;
+                book.structure_dirty = true;
+                book.structure_generation += 1;
+                if book.path.is_none() {
+                    book.settings.name = e.note.name.clone();
+                }
+                self.install(book);
+                self.toast(ToastKind::Success, trf("Recovered “{f}”", &[("f", e.note.name)]), now);
+            }
+            Err(err) => self.toast(ToastKind::Error, trf("Couldn't open: {e}", &[("e", err.to_string())]), now),
+        }
+    }
+
+    fn recovery_dialog(&mut self, ctx: &egui::Context, now: f64) {
+        let p = theme::palette_ctx(ctx);
+        let mut action: Option<(usize, bool)> = None;
+        let mut later = false;
+        let secs_now = crate::recovery::now_secs();
+        egui::Modal::new(egui::Id::new("recovery")).frame(modal_frame(p)).show(ctx, |ui| {
+            ui.set_width(520.0);
+            ui.label(RichText::new(tr("Recover unsaved work?")).text_style(text::title()));
+            ui.add_space(4.0);
+            ui.label(RichText::new(tr("Inkstudio was closed while these had unsaved changes. Autosave kept a copy.")).color(p.text_muted));
+            ui.add_space(10.0);
+            for (i, e) in self.recovery.iter().enumerate() {
+                egui::Frame::new().fill(p.surface_sunken).corner_radius(3).inner_margin(8).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.label(RichText::new(&e.note.name).text_style(text::body_strong()));
+                            let mins = secs_now.saturating_sub(e.note.saved_at) / 60;
+                            let place = e.note.original.as_ref().map_or_else(|| tr("never saved").to_string(), |p| p.display().to_string());
+                            let when = if mins == 0 { tr("Autosaved just now").to_string() } else { trf("Autosaved {n} min ago", &[("n", mins.to_string())]) };
+                            ui.label(RichText::new(format!("{when} · {place}")).text_style(text::caption()).color(p.text_muted));
+                        });
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.add(Button::new(tr("Recover")).variant(ButtonVariant::Primary).size(ButtonSize::Sm)).clicked() {
+                                action = Some((i, true));
+                            }
+                            if ui.add(Button::new(tr("Discard")).size(ButtonSize::Sm)).clicked() {
+                                action = Some((i, false));
+                            }
+                        });
+                    });
+                });
+                ui.add_space(4.0);
+            }
+            ui.add_space(8.0);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.add(Button::new(tr("Later")).min_width(80.0)).on_hover_text(tr("Keep the copies and ask again next time")).clicked() {
+                    later = true;
+                }
+            });
+        });
+        match action {
+            Some((i, true)) => self.recover(i, now),
+            Some((i, false)) => {
+                let e = self.recovery.remove(i);
+                crate::recovery::remove(&self.config_dir, e.note.id);
+            }
+            None => {}
+        }
+        if later {
+            self.recovery.clear();
+        }
+        if self.recovery.is_empty() && self.book.is_none() && self.new_sheet.is_none() {
+            self.new_sheet = Some(NewSheet::new(false));
         }
     }
 
     // ---- keyboard ------------------------------------------------------------------------------
 
     fn shortcuts(&mut self, ctx: &egui::Context, now: f64) {
-        if self.new_sheet.is_some() || self.file_dialog.is_some() || self.confirm.is_some() {
+        if self.new_sheet.is_some() || self.file_dialog.is_some() || self.confirm.is_some() || self.layout_name.is_some() || !self.recovery.is_empty() {
             return;
         }
         let cmd = egui::Modifiers::COMMAND;
@@ -750,6 +1097,19 @@ impl InkApp {
                     self.request(Pending::Open(None), now);
                     ui.close();
                 }
+                ui.menu_button(tr("Autosave"), |ui| {
+                    for (secs, label) in [(0u32, tr("Off")), (60, tr("Every minute")), (180, tr("Every 3 minutes")), (300, tr("Every 5 minutes")), (600, tr("Every 10 minutes"))] {
+                        if ui.radio(self.settings.autosave_secs == secs, label).clicked() {
+                            self.settings.autosave_secs = secs;
+                            self.settings_dirty = true;
+                        }
+                    }
+                    ui.separator();
+                    if ui.checkbox(&mut self.settings.autosave_project, tr("Also save the project file")).changed() {
+                        self.settings_dirty = true;
+                    }
+                    ui.label(RichText::new(tr("A recovery copy is always kept until you save, so work survives a crash.")).text_style(text::caption()).color(palette(ui).text_muted));
+                });
                 ui.menu_button(tr("Open recent"), |ui| {
                     if self.settings.recent.is_empty() {
                         ui.label(RichText::new(tr("No recent files")).color(palette(ui).text_muted));
@@ -893,10 +1253,7 @@ impl InkApp {
                     }
                 }
                 ui.separator();
-                if ui.button(tr("Reset layout")).clicked() {
-                    self.dock = default_dock();
-                    ui.close();
-                }
+                self.layouts_menu(ui);
             });
             ui.menu_button(format!("{} / Language", tr("Language")), |ui| {
                 for l in Lang::ALL {
@@ -995,8 +1352,15 @@ impl InkApp {
                 ui.label(st(format!("{:.0}, {:.0}", c.x, c.y)));
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if let Some(t) = self.autosaved_at {
+                    let ago = (ui.input(|i| i.time) - t).max(0.0);
+                    let label = if ago < 60.0 { tr("Autosaved just now").to_string() } else { trf("Autosaved {n} min ago", &[("n", format!("{:.0}", ago / 60.0))]) };
+                    ui.label(st(label));
+                }
                 let src = if self.pen.saw_pen {
                     trf("Pen pressure {p}", &[("p", format!("{:.2}", self.pen.last_pressure))])
+                } else if let Some(name) = self.tablet_name {
+                    trf("Tablet ready ({b})", &[("b", name.to_string())])
                 } else if self.pen.simulate {
                     tr("Mouse (simulated pressure)").into()
                 } else {
@@ -1212,7 +1576,7 @@ impl InkApp {
                                 if ui.add(egui::DragValue::new(&mut border).range(0.05..=5.0).speed(0.01).suffix(" mm")).changed() {
                                     page.panels.border = border / mm;
                                     page.render_panels();
-                                    page.dirty = true;
+                                    page.touch();
                                 }
                             });
                             ui.horizontal(|ui| {
@@ -1298,7 +1662,7 @@ impl InkApp {
             }
             page.balloons[idx] = bl;
             page.render_balloons(&self.fonts, None);
-            page.dirty = true;
+            page.touch();
         }
         ui.horizontal(|ui| {
             if ui.add(Button::new(tr("Bring to front")).size(ButtonSize::Sm)).clicked() {
@@ -1462,13 +1826,13 @@ impl InkApp {
                             l.props.visible = !l.props.visible;
                         }
                         page.doc.mark_all_dirty();
-                        page.dirty = true;
+                        page.touch();
                     }
                     LayerRowEvent::ToggleLock => {
                         if let Some(l) = page.doc.layer_mut(id) {
                             l.props.locked = !l.props.locked;
                         }
-                        page.dirty = true;
+                        page.touch();
                     }
                     _ => {}
                 }
@@ -1729,15 +2093,16 @@ impl InkApp {
         if !typing && ui.input(|i| i.key_pressed(Key::Period)) {
             frame = (frame + 1).min(tl.frames - 1);
         }
+        let mut touched = false;
         if new_cel {
             if let Some(id) = tl.new_cel(&mut page.doc, 0, frame) {
                 self.active_layer = Some(id);
-                page.dirty = true;
+                touched = true;
             }
         }
         if blank {
             tl.set_key(0, frame, None);
-            page.dirty = true;
+            touched = true;
         }
         if self.playing {
             self.play_accum += dt;
@@ -1749,6 +2114,9 @@ impl InkApp {
             ui.ctx().request_repaint();
         }
         frame = frame.min(tl.frames.saturating_sub(1));
+        if touched {
+            page.touch();
+        }
         if frame != page.frame || new_cel || blank {
             page.set_frame(frame);
             if let Some(c) = page.timeline.as_ref().and_then(|t| t.cel_at(0, frame)) {
@@ -2271,6 +2639,17 @@ impl egui_dock::TabViewer for Viewer<'_> {
     }
 }
 
+/// Dock state of a layout: its saved arrangement, else the built-in default, else Standard.
+fn load_layout(settings: &Settings, id: &str) -> DockState<Pane> {
+    settings
+        .layouts
+        .get(id)
+        .and_then(|s| ron::from_str::<DockState<Pane>>(s).ok())
+        .filter(|d| d.find_tab(&Pane::Canvas).is_some())
+        .or_else(|| crate::layouts::builtin(id))
+        .unwrap_or_else(default_dock)
+}
+
 fn modal_frame(p: &theme::Palette) -> egui::Frame {
     egui::Frame::new().fill(p.surface_raised).stroke(Stroke::new(1.0, p.border_strong)).corner_radius(tokens::radius::LG as u8).inner_margin(20)
 }
@@ -2442,6 +2821,40 @@ mod tests {
         assert!(back.find_tab(&Pane::Timeline).is_some());
     }
 
+    #[test]
+    fn layouts_keep_their_own_arrangement_and_survive_restart() {
+        let cfg = std::env::temp_dir().join(format!("inkstudio-layouts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&cfg);
+        let ctx = egui::Context::default();
+        let mut app = InkApp::with_config(&ctx, cfg.clone());
+        app.switch_layout("animation");
+        assert!(app.dock.find_tab(&Pane::Timeline).is_some());
+        // Close the color palette in "animation" only.
+        let path = app.dock.find_tab(&Pane::Color).unwrap();
+        app.dock.remove_tab(path);
+        app.switch_layout("manga");
+        assert!(app.dock.find_tab(&Pane::Color).is_some(), "manga is untouched");
+        assert!(app.dock.find_tab(&Pane::Timeline).is_none());
+        app.switch_layout("animation");
+        assert!(app.dock.find_tab(&Pane::Color).is_none(), "animation remembers its change");
+        app.reset_layout();
+        assert!(app.dock.find_tab(&Pane::Color).is_some(), "reset restores the default");
+        // A user layout.
+        let path = app.dock.find_tab(&Pane::Navigator).unwrap();
+        app.dock.remove_tab(path);
+        assert!(app.save_layout_as("Mein Layout"));
+        app.persist_settings();
+        let app2 = InkApp::with_config(&ctx, cfg.clone());
+        assert_eq!(app2.settings.active_layout, "custom:Mein Layout");
+        assert!(app2.dock.find_tab(&Pane::Navigator).is_none());
+        // Opening an animation sheet switches to the animation layout.
+        let mut app3 = InkApp::with_config(&ctx, cfg.clone());
+        app3.open(SheetSettings { kind: SheetKind::Animation, trim_mm: (50.0, 30.0), dpi: 72, ..Default::default() });
+        assert_eq!(app3.settings.active_layout, "animation");
+        app3.delete_layout("Mein Layout");
+        assert!(app3.settings.custom_layouts.is_empty());
+    }
+
     /// Every `tr("…")` literal in the UI sources and every name passed through tr() at
     /// runtime has a German translation.
     #[test]
@@ -2477,6 +2890,7 @@ mod tests {
             .chain(SheetKind::ALL.iter().map(|k| k.name()))
             .chain([ColorMode::Color, ColorMode::Gray, ColorMode::Mono].iter().map(|m| m.name()))
             .chain(crate::new_sheet::FORMATS.iter().map(|f| f.0))
+            .chain(crate::layouts::BUILTIN.iter().map(|l| l.1))
             .map(String::from)
             .chain(catalog().into_iter().flat_map(|p| [p.params.name, p.use_for.to_string()]));
         missing.extend(names.filter(|s| !ink_ui::i18n::has_de(s) && !s.chars().all(|c| !c.is_alphabetic() || c.is_ascii_uppercase() || c.is_ascii_digit())));

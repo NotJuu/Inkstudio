@@ -310,6 +310,61 @@ fn main() {
     h.app.export_to = Some(out.clone());
     h.app.export_gif(0.0);
     assert!(h.app.last_export.as_ref().is_some_and(|p| p.extension().is_some_and(|e| e == "gif") && p.exists()), "GIF exported");
+    assert_eq!(h.app.settings.active_layout, "animation", "animation sheets switch to the animation layout");
+
+    // 9. Layouts: lettering with the balloon tool, canvas focus, and a user layout.
+    h2.app.switch_layout("lettering");
+    h2.app.tool = Tool::Balloon;
+    h2.app.selected_balloon = h2.app.book.as_ref().unwrap().page().balloons.first().map(|b| b.id);
+    h2.idle(10);
+    h2.snap(&out.join("10-layout-lettering.png"));
+    h2.app.switch_layout("focus");
+    h2.app.tool = Tool::Brush;
+    h2.idle(10);
+    h2.snap(&out.join("11-layout-focus.png"));
+    h2.app.switch_layout("manga");
+    if let Some(path) = h2.app.dock.find_tab(&Pane::Navigator) {
+        h2.app.dock.remove_tab(path);
+    }
+    h2.app.layout_name = Some(String::new());
+    h2.idle(2);
+    h2.type_text("Mein Inking");
+    h2.idle(14);
+    h2.snap(&out.join("12-save-layout.png"));
+    h2.key(Key::Enter);
+    h2.idle(2);
+    assert_eq!(h2.app.settings.active_layout, "custom:Mein Inking");
+    assert!(h2.app.settings.custom_layouts.iter().any(|n| n == "Mein Inking"));
+
+    // 10. Autosave, "crash", recovery.
+    let mut hc = Harness::new(&config);
+    hc.idle(2);
+    hc.app.open(SheetSettings { name: "crash-test".into(), dpi: 150, ..Default::default() });
+    hc.idle(4);
+    hc.app.settings.autosave_secs = 1;
+    hc.app.select_brush("g_pen");
+    let (w, hgt) = { let d = &hc.app.book.as_ref().unwrap().page().doc; (d.width as f32, d.height as f32) };
+    hc.pen(&line((w * 0.2, hgt * 0.3), (w * 0.8, hgt * 0.35), 40), |t| 0.3 + 0.7 * (t * std::f32::consts::PI).sin());
+    hc.idle(80); // > 1 s of UI time
+    hc.app.finish_autosave(hc.t);
+    let rec = inkstudio::recovery::list(&config);
+    assert_eq!(rec.len(), 1, "one recovery copy written");
+    assert!(hc.app.is_dirty(), "a recovery copy doesn't mark the project saved");
+    let ink_before = { let p = hc.app.book.as_ref().unwrap().page(); p.doc.layer(p.ink_layer).unwrap().raster.tile_count() };
+    drop(hc); // the app "crashes" without saving
+    let mut hr = Harness::new(&config);
+    hr.idle(15);
+    hr.snap(&out.join("13-recovery-dialog.png"));
+    hr.app.recover(0, hr.t);
+    hr.idle(4);
+    let b = hr.app.book.as_ref().expect("recovered");
+    assert_eq!(b.settings.name, "crash-test");
+    assert!(b.is_dirty(), "recovered work is unsaved until the user saves it");
+    let ink_after = { let p = b.page(); p.doc.layer(p.ink_layer).unwrap().raster.tile_count() };
+    assert_eq!(ink_before, ink_after, "the stroke survived the crash");
+    // Saving removes the recovery copy.
+    hr.app.save_to(&docs.join("crash-test.inks"), hr.t);
+    assert!(inkstudio::recovery::list(&config).is_empty());
     let _ = std::fs::remove_dir_all(&work);
     println!("all scenarios passed");
 }

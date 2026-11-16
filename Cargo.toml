@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/ink-core", "crates/ink-raster", "crates/ink-vector", "crates/ink-comic", "crates/ink-anim", "crates/ink-io", "crates/ink-ui", "crates/inkstudio"]
+members = ["crates/ink-core", "crates/ink-raster", "crates/ink-vector", "crates/ink-comic", "crates/ink-anim", "crates/ink-io", "crates/ink-tablet", "crates/ink-ui", "crates/inkstudio"]
 
 [workspace.package]
 edition = "2024"
@@ -15,6 +15,7 @@ ink-comic = { path = "crates/ink-comic" }
 ink-anim = { path = "crates/ink-anim" }
 ink-ui = { path = "crates/ink-ui" }
 ink-io = { path = "crates/ink-io" }
+ink-tablet = { path = "crates/ink-tablet" }
 egui = { version = "0.36", default-features = false, features = ["default_fonts"] }
 egui-phosphor = "0.14"
 png = "0.18"

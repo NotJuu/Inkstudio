@@ -17,6 +17,7 @@ ink-comic.workspace = true
 ink-anim.workspace = true
 ink-ui.workspace = true
 ink-io.workspace = true
+ink-tablet.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 egui_dock = { version = "0.21", features = ["serde"] }
