@@ -11,12 +11,13 @@ pub const STANDARD: &str = "standard";
 pub const CUSTOM_PREFIX: &str = "custom:";
 
 /// (id, English display name) of the built-in layouts, in menu order.
-pub const BUILTIN: [(&str, &str); 6] = [
+pub const BUILTIN: [(&str, &str); 7] = [
     ("standard", "Standard"),
     ("manga", "Manga & inking"),
     ("lettering", "Lettering & balloons"),
     ("animation", "Animation"),
     ("illustration", "Illustration & painting"),
+    ("concept", "Concept art"),
     ("focus", "Canvas focus"),
 ];
 
@@ -30,7 +31,10 @@ pub fn custom_id(name: &str) -> String {
 
 /// Display name (untranslated) for an id.
 pub fn display_name(id: &str) -> &str {
-    BUILTIN.iter().find(|(b, _)| *b == id).map_or_else(|| id.strip_prefix(CUSTOM_PREFIX).unwrap_or(id), |(_, n)| *n)
+    BUILTIN
+        .iter()
+        .find(|(b, _)| *b == id)
+        .map_or_else(|| id.strip_prefix(CUSTOM_PREFIX).unwrap_or(id), |(_, n)| *n)
 }
 
 /// The layout a sheet kind starts with.
@@ -39,6 +43,7 @@ pub fn for_kind(kind: SheetKind) -> &'static str {
         SheetKind::MangaPage | SheetKind::Book => "manga",
         SheetKind::Animation => "animation",
         SheetKind::Illustration | SheetKind::Webtoon => "illustration",
+        SheetKind::ConceptArt => "concept",
     }
 }
 
@@ -49,6 +54,7 @@ pub fn kind_key(kind: SheetKind) -> &'static str {
         SheetKind::Book => "book",
         SheetKind::Webtoon => "webtoon",
         SheetKind::Animation => "animation",
+        SheetKind::ConceptArt => "concept_art",
     }
 }
 
@@ -96,9 +102,21 @@ pub fn builtin(id: &str) -> Option<DockState<Pane>> {
             let [_center, right] = s.split_right(center, 0.75, vec![Pane::Color]);
             s.split_below(right, 0.45, vec![Pane::Layers, Pane::Navigator]);
         }
+        // Concept art: big color tools and navigator on the right, brushes left, nothing below.
+        "concept" => {
+            let [center, left] = s.split_left(root, 0.15, vec![Pane::SubTool]);
+            s.split_below(left, 0.55, vec![Pane::ToolProperty]);
+            let [_center, right] = s.split_right(center, 0.74, vec![Pane::Color]);
+            let [_r, lower] = s.split_below(right, 0.50, vec![Pane::Layers]);
+            s.split_below(lower, 0.55, vec![Pane::Navigator]);
+        }
         // Maximum canvas: one narrow tab stack on the right.
         "focus" => {
-            s.split_right(root, 0.84, vec![Pane::Color, Pane::Layers, Pane::Navigator, Pane::SubTool]);
+            s.split_right(
+                root,
+                0.84,
+                vec![Pane::Color, Pane::Layers, Pane::Navigator, Pane::SubTool],
+            );
         }
         _ => return None,
     }
@@ -117,8 +135,18 @@ mod tests {
             let back: DockState<Pane> = ron::from_str(&ron::to_string(&d).unwrap()).unwrap();
             assert!(back.find_tab(&Pane::Canvas).is_some());
         }
-        assert!(builtin("animation").unwrap().find_tab(&Pane::Timeline).is_some());
-        assert!(builtin("manga").unwrap().find_tab(&Pane::Timeline).is_none());
+        assert!(
+            builtin("animation")
+                .unwrap()
+                .find_tab(&Pane::Timeline)
+                .is_some()
+        );
+        assert!(
+            builtin("manga")
+                .unwrap()
+                .find_tab(&Pane::Timeline)
+                .is_none()
+        );
         assert!(builtin("manga").unwrap().find_tab(&Pane::Pages).is_some());
         assert!(builtin("nope").is_none());
     }

@@ -53,7 +53,14 @@ pub struct Button {
 
 impl Button {
     pub fn new(label: impl Into<String>) -> Self {
-        Self { label: label.into(), icon: None, variant: ButtonVariant::Secondary, size: ButtonSize::Md, loading: false, min_width: 0.0 }
+        Self {
+            label: label.into(),
+            icon: None,
+            variant: ButtonVariant::Secondary,
+            size: ButtonSize::Md,
+            loading: false,
+            min_width: 0.0,
+        }
     }
     pub fn primary(label: impl Into<String>) -> Self {
         Self::new(label).variant(ButtonVariant::Primary)
@@ -85,11 +92,26 @@ impl Widget for Button {
     fn ui(self, ui: &mut Ui) -> Response {
         let p = palette(ui);
         let enabled = ui.is_enabled() && !self.loading;
-        let galley = WidgetText::from(self.label.clone()).into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, text::body_strong());
+        let galley = WidgetText::from(self.label.clone()).into_galley(
+            ui,
+            Some(egui::TextWrapMode::Extend),
+            f32::INFINITY,
+            text::body_strong(),
+        );
         let h = self.size.height();
-        let icon_w = if self.icon.is_some() { tokens::icon::MD + tokens::space::S3 } else { 0.0 };
-        let w = (galley.size().x + icon_w + 2.0 * self.size.pad()).max(self.min_width).max(h);
-        let sense = if enabled { Sense::click() } else { Sense::hover() };
+        let icon_w = if self.icon.is_some() {
+            tokens::icon::MD + tokens::space::S3
+        } else {
+            0.0
+        };
+        let w = (galley.size().x + icon_w + 2.0 * self.size.pad())
+            .max(self.min_width)
+            .max(h);
+        let sense = if enabled {
+            Sense::click()
+        } else {
+            Sense::hover()
+        };
         let (rect, resp) = ui.allocate_exact_size(vec2(w, h), sense);
         let label = self.label.clone();
         resp.widget_info(|| {
@@ -105,25 +127,51 @@ impl Widget for Button {
             let pressed = enabled && resp.is_pointer_button_down_on();
             let (fill, fg, border) = match self.variant {
                 ButtonVariant::Primary => (
-                    if pressed || hovered { p.accent_hover } else { p.accent },
+                    if pressed || hovered {
+                        p.accent_hover
+                    } else {
+                        p.accent
+                    },
                     p.on_accent,
                     Color32::TRANSPARENT,
                 ),
                 ButtonVariant::Danger => (p.danger_solid, p.on_danger, Color32::TRANSPARENT),
                 ButtonVariant::Secondary => (
-                    if pressed { p.surface_active } else if hovered { p.surface_hover } else { p.surface_raised },
+                    if pressed {
+                        p.surface_active
+                    } else if hovered {
+                        p.surface_hover
+                    } else {
+                        p.surface_raised
+                    },
                     p.text,
                     p.border_strong,
                 ),
                 ButtonVariant::Ghost => (
-                    if pressed { p.surface_active } else if hovered { p.surface_hover } else { Color32::TRANSPARENT },
+                    if pressed {
+                        p.surface_active
+                    } else if hovered {
+                        p.surface_hover
+                    } else {
+                        Color32::TRANSPARENT
+                    },
                     p.text,
                     Color32::TRANSPARENT,
                 ),
             };
-            let (fill, fg) = if ui.is_enabled() { (fill, fg) } else { (fill.gamma_multiply(0.5), p.text_disabled) };
+            let (fill, fg) = if ui.is_enabled() {
+                (fill, fg)
+            } else {
+                (fill.gamma_multiply(0.5), p.text_disabled)
+            };
             let r = CornerRadius::same(tokens::radius::MD as u8);
-            ui.painter().rect(rect, r, fill, Stroke::new(tokens::stroke::HAIRLINE, border), StrokeKind::Inside);
+            ui.painter().rect(
+                rect,
+                r,
+                fill,
+                Stroke::new(tokens::stroke::HAIRLINE, border),
+                StrokeKind::Inside,
+            );
             if self.loading {
                 let s = tokens::icon::MD;
                 let spin = egui::Rect::from_center_size(rect.center(), vec2(s, s));
@@ -133,7 +181,13 @@ impl Widget for Button {
                 let left = rect.center().x - content_w / 2.0;
                 if let Some(i) = self.icon {
                     let c = egui::pos2(left + tokens::icon::MD / 2.0, rect.center().y);
-                    ui.painter().text(c, Align2::CENTER_CENTER, i, crate::theme::icon_font(tokens::icon::MD), fg);
+                    ui.painter().text(
+                        c,
+                        Align2::CENTER_CENTER,
+                        i,
+                        crate::theme::icon_font(tokens::icon::MD),
+                        fg,
+                    );
                 }
                 let pos = egui::pos2(left + icon_w, rect.center().y - galley.size().y / 2.0);
                 ui.painter().galley(pos, galley, fg);
@@ -155,7 +209,12 @@ pub struct IconButton {
 
 impl IconButton {
     pub fn new(icon: &'static str, label: impl Into<String>) -> Self {
-        Self { icon, label: label.into(), selected: None, size: tokens::control_h::LG }
+        Self {
+            icon,
+            label: label.into(),
+            selected: None,
+            size: tokens::control_h::LG,
+        }
     }
     /// Makes it a toggle (tool selection, eye, lock).
     pub fn selected(mut self, on: bool) -> Self {
@@ -172,7 +231,11 @@ impl Widget for IconButton {
     fn ui(self, ui: &mut Ui) -> Response {
         let p = palette(ui);
         let (rect, resp) = ui.allocate_exact_size(vec2(self.size, self.size), Sense::click());
-        let kind = if self.selected.is_some() { WidgetType::Checkbox } else { WidgetType::Button };
+        let kind = if self.selected.is_some() {
+            WidgetType::Checkbox
+        } else {
+            WidgetType::Button
+        };
         resp.widget_info(|| match self.selected {
             Some(on) => WidgetInfo::selected(kind, ui.is_enabled(), on, &self.label),
             None => WidgetInfo::labeled(kind, ui.is_enabled(), &self.label),
@@ -192,12 +255,32 @@ impl Widget for IconButton {
             ui.painter().rect_filled(rect, r, fill);
             if on {
                 // Selection indicator bar: visible on any surface (accent-indicator role).
-                let bar = egui::Rect::from_min_size(rect.left_top() + vec2(0.0, 4.0), vec2(2.0, rect.height() - 8.0));
-                ui.painter().rect_filled(bar, CornerRadius::same(1), p.accent_indicator);
+                let bar = egui::Rect::from_min_size(
+                    rect.left_top() + vec2(0.0, 4.0),
+                    vec2(2.0, rect.height() - 8.0),
+                );
+                ui.painter()
+                    .rect_filled(bar, CornerRadius::same(1), p.accent_indicator);
             }
-            let fg = if !ui.is_enabled() { p.text_disabled } else if on { p.accent_text } else { p.text };
-            let icon_size = if self.size >= tokens::control_h::LG { tokens::icon::LG } else { tokens::icon::MD };
-            ui.painter().text(rect.center(), Align2::CENTER_CENTER, self.icon, crate::theme::icon_font(icon_size), fg);
+            let fg = if !ui.is_enabled() {
+                p.text_disabled
+            } else if on {
+                p.accent_text
+            } else {
+                p.text
+            };
+            let icon_size = if self.size >= tokens::control_h::LG {
+                tokens::icon::LG
+            } else {
+                tokens::icon::MD
+            };
+            ui.painter().text(
+                rect.center(),
+                Align2::CENTER_CENTER,
+                self.icon,
+                crate::theme::icon_font(icon_size),
+                fg,
+            );
             focus_ring(ui, &resp, rect, tokens::radius::MD);
         }
         resp.on_hover_text(&self.label)

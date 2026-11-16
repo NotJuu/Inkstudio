@@ -20,15 +20,15 @@ mod tabs;
 mod timeline;
 
 pub use button::{Button, ButtonSize, ButtonVariant, IconButton};
-pub use color_wheel::{color_wheel, Hsv};
-pub use feedback::{progress_bar, toast, ToastKind};
-pub use field::{slider_field, unit_field, Unit};
+pub use color_wheel::{Hsv, color_wheel};
+pub use feedback::{ToastKind, progress_bar, toast};
+pub use field::{Unit, slider_field, unit_field};
 pub use overlay::{dual_stroke_line, handle};
-pub use panel::{dialog_frame, palette_header, DialogResult};
-pub use row::{layer_row, list_row, LayerKind, LayerRowState, LayerRowEvent};
+pub use panel::{DialogResult, dialog_frame, palette_header};
+pub use row::{LayerKind, LayerRowEvent, LayerRowState, layer_row, list_row};
 pub use swatch::{color_pair, swatch};
 pub use tabs::tab_strip;
-pub use timeline::{timeline_track, CelCell};
+pub use timeline::{CelCell, timeline_track};
 
 use crate::theme::{palette, tokens};
 use egui::{Rect, Response, StrokeKind, Ui};

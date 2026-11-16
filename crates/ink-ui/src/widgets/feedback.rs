@@ -41,7 +41,12 @@ pub enum ToastKind {
 /// Non-blocking status message (S03). Shown bottom-centre by the shell, 4 s auto-dismiss
 /// (errors stay until dismissed). Announced to screen readers as a live region by the shell.
 /// The kind is shown with an icon as well as color.
-pub fn toast(ui: &mut Ui, kind: ToastKind, message: &str, action: Option<&str>) -> Option<Response> {
+pub fn toast(
+    ui: &mut Ui,
+    kind: ToastKind,
+    message: &str,
+    action: Option<&str>,
+) -> Option<Response> {
     let p = palette(ui);
     let (icon, color) = match kind {
         ToastKind::Info => (icons::INFO, p.accent_text),
@@ -55,13 +60,30 @@ pub fn toast(ui: &mut Ui, kind: ToastKind, message: &str, action: Option<&str>) 
         .stroke(Stroke::new(1.0, p.border_strong))
         .corner_radius(CornerRadius::same(tokens::radius::LG as u8))
         .shadow(ui.visuals().popup_shadow)
-        .inner_margin(Margin::symmetric(tokens::space::S5 as i8, tokens::space::S4 as i8))
+        .inner_margin(Margin::symmetric(
+            tokens::space::S5 as i8,
+            tokens::space::S4 as i8,
+        ))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new(icon).font(crate::theme::icon_font(tokens::icon::MD)).color(color));
-                ui.label(RichText::new(message).text_style(text::body()).color(p.text));
+                ui.label(
+                    RichText::new(icon)
+                        .font(crate::theme::icon_font(tokens::icon::MD))
+                        .color(color),
+                );
+                ui.label(
+                    RichText::new(message)
+                        .text_style(text::body())
+                        .color(p.text),
+                );
                 if let Some(a) = action {
-                    out = Some(ui.add(Button::new(a).variant(ButtonVariant::Ghost).size(ButtonSize::Sm)));
+                    out = Some(
+                        ui.add(
+                            Button::new(a)
+                                .variant(ButtonVariant::Ghost)
+                                .size(ButtonSize::Sm),
+                        ),
+                    );
                 }
             });
         });

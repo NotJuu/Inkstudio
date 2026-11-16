@@ -19,8 +19,11 @@ pub fn slider_field(
     let p = palette(ui);
     ui.horizontal(|ui| {
         ui.set_min_height(tokens::control_h::SM);
-        ui.add_sized([96.0, tokens::control_h::SM], egui::Label::new(RichText::new(label).color(p.text_muted)).truncate())
-            .on_hover_text(label);
+        ui.add_sized(
+            [96.0, tokens::control_h::SM],
+            egui::Label::new(RichText::new(label).color(p.text_muted)).truncate(),
+        )
+        .on_hover_text(label);
         let slider = ui.add(
             Slider::new(value, range.clone())
                 .show_value(false)
@@ -36,8 +39,19 @@ pub fn slider_field(
                 .max_decimals(1),
         );
         if let Some(on) = pressure {
-            let tip = crate::tr(if *on { "Pen pressure on" } else { "Pen pressure off" });
-            if ui.add(IconButton::new(icons::PEN_NIB, tip).selected(*on).size(tokens::control_h::SM)).clicked() {
+            let tip = crate::tr(if *on {
+                "Pen pressure on"
+            } else {
+                "Pen pressure off"
+            });
+            if ui
+                .add(
+                    IconButton::new(icons::PEN_NIB, tip)
+                        .selected(*on)
+                        .size(tokens::control_h::SM),
+                )
+                .clicked()
+            {
                 *on = !*on;
             }
         }
@@ -68,7 +82,14 @@ impl Unit {
 /// Numeric field with a unit suffix, for canvas and page sizes (S02, S20, S24).
 /// The value is always stored in micrometres; display converts with `dpi` so
 /// switching units never accumulates rounding error.
-pub fn unit_field(ui: &mut Ui, label: &str, value_um: &mut i64, unit: Unit, dpi: f32, error: Option<&str>) -> Response {
+pub fn unit_field(
+    ui: &mut Ui,
+    label: &str,
+    value_um: &mut i64,
+    unit: Unit,
+    dpi: f32,
+    error: Option<&str>,
+) -> Response {
     let p = palette(ui);
     let per_unit_um = match unit {
         Unit::Px => 25_400.0 / dpi as f64,
@@ -79,7 +100,11 @@ pub fn unit_field(ui: &mut Ui, label: &str, value_um: &mut i64, unit: Unit, dpi:
     let mut shown = *value_um as f64 / per_unit_um;
     let resp = ui
         .vertical(|ui| {
-            ui.label(RichText::new(label).text_style(text::caption()).color(p.text_muted));
+            ui.label(
+                RichText::new(label)
+                    .text_style(text::caption())
+                    .color(p.text_muted),
+            );
             let r = ui.add(
                 DragValue::new(&mut shown)
                     .suffix(unit.suffix())
@@ -87,7 +112,11 @@ pub fn unit_field(ui: &mut Ui, label: &str, value_um: &mut i64, unit: Unit, dpi:
                     .max_decimals(if unit == Unit::Px { 0 } else { 2 }),
             );
             if let Some(msg) = error {
-                ui.label(RichText::new(msg).text_style(text::caption()).color(p.danger));
+                ui.label(
+                    RichText::new(msg)
+                        .text_style(text::caption())
+                        .color(p.danger),
+                );
             }
             r
         })

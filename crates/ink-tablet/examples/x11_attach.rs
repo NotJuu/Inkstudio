@@ -7,7 +7,20 @@ fn main() {
     let (conn, screen) = x11rb::connect(None).expect("X server");
     let root = conn.setup().roots[screen].root;
     let win = conn.generate_id().unwrap();
-    conn.create_window(0, win, root, 0, 0, 200, 200, 0, WindowClass::INPUT_OUTPUT, 0, &CreateWindowAux::new()).unwrap();
+    conn.create_window(
+        0,
+        win,
+        root,
+        0,
+        0,
+        200,
+        200,
+        0,
+        WindowClass::INPUT_OUTPUT,
+        0,
+        &CreateWindowAux::new(),
+    )
+    .unwrap();
     conn.map_window(win).unwrap();
     conn.flush().unwrap();
     let q = ink_tablet::Queue::default();

@@ -203,8 +203,10 @@ pub mod motion {
 /// Shadows: (offset_x, offset_y, blur, spread, color).
 pub mod shadow {
     use egui::Color32;
-    pub const POPUP: (i8, i8, u8, u8, Color32) = (0, 4, 12, 0, Color32::from_rgba_premultiplied(0, 0, 0, 89));
-    pub const FLOATING: (i8, i8, u8, u8, Color32) = (0, 8, 24, 0, Color32::from_rgba_premultiplied(0, 0, 0, 115));
+    pub const POPUP: (i8, i8, u8, u8, Color32) =
+        (0, 4, 12, 0, Color32::from_rgba_premultiplied(0, 0, 0, 89));
+    pub const FLOATING: (i8, i8, u8, u8, Color32) =
+        (0, 8, 24, 0, Color32::from_rgba_premultiplied(0, 0, 0, 115));
 }
 
 /// Layout sizes.

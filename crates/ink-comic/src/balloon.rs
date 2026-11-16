@@ -142,7 +142,10 @@ impl Balloon {
         let (w, h) = (l.width.max(self.font_px), l.height.max(self.font_px));
         let k = match self.style {
             // An ellipse needs √2 × the text box to contain it.
-            BalloonStyle::Oval | BalloonStyle::Thought | BalloonStyle::Wavy | BalloonStyle::Whisper => 0.75,
+            BalloonStyle::Oval
+            | BalloonStyle::Thought
+            | BalloonStyle::Wavy
+            | BalloonStyle::Whisper => 0.75,
             BalloonStyle::Shout => 0.95,
             _ => 0.5,
         };
@@ -154,16 +157,23 @@ impl Balloon {
     pub fn outline(&self) -> Vec<Pt> {
         let (c, rx, ry) = (self.center, self.half.x, self.half.y);
         let ellipse = |n: usize, f: &dyn Fn(f32) -> f32| -> Vec<Pt> {
-            (0..n).map(|i| {
-                let t = i as f32 / n as f32 * TAU;
-                let k = f(t);
-                Pt::new(c.x + rx * k * t.cos(), c.y + ry * k * t.sin())
-            }).collect()
+            (0..n)
+                .map(|i| {
+                    let t = i as f32 / n as f32 * TAU;
+                    let k = f(t);
+                    Pt::new(c.x + rx * k * t.cos(), c.y + ry * k * t.sin())
+                })
+                .collect()
         };
         let rect = |r: f32, steps: usize| -> Vec<Pt> {
             let r = r.min(rx).min(ry);
             let mut v = Vec::new();
-            let corners = [(c.x + rx - r, c.y - ry + r, -PI / 2.0), (c.x + rx - r, c.y + ry - r, 0.0), (c.x - rx + r, c.y + ry - r, PI / 2.0), (c.x - rx + r, c.y - ry + r, PI)];
+            let corners = [
+                (c.x + rx - r, c.y - ry + r, -PI / 2.0),
+                (c.x + rx - r, c.y + ry - r, 0.0),
+                (c.x - rx + r, c.y + ry - r, PI / 2.0),
+                (c.x - rx + r, c.y - ry + r, PI),
+            ];
             for (cx, cy, a0) in corners {
                 for s in 0..=steps {
                     let a = a0 + s as f32 / steps.max(1) as f32 * PI / 2.0;
@@ -174,11 +184,15 @@ impl Balloon {
         };
         let seed = self.id as u32;
         match self.style {
-            BalloonStyle::Oval | BalloonStyle::Whisper | BalloonStyle::TextOnly => ellipse(160, &|_| 1.0),
+            BalloonStyle::Oval | BalloonStyle::Whisper | BalloonStyle::TextOnly => {
+                ellipse(160, &|_| 1.0)
+            }
             BalloonStyle::Wavy => ellipse(320, &|t| 1.0 + 0.035 * (t * 26.0).sin()),
             BalloonStyle::Thought => {
                 let bumps = 11.0;
-                ellipse(330, &|t| 0.9 + 0.14 * ((t * bumps / 2.0).sin().abs()).powf(0.6))
+                ellipse(330, &|t| {
+                    0.9 + 0.14 * ((t * bumps / 2.0).sin().abs()).powf(0.6)
+                })
             }
             BalloonStyle::Shout => {
                 let spikes = 18;
@@ -186,7 +200,11 @@ impl Balloon {
                     .map(|i| {
                         let t = i as f32 / (spikes * 2) as f32 * TAU;
                         let jitter = crate_hash(seed, i as u32);
-                        let k = if i % 2 == 0 { 1.22 + 0.18 * jitter } else { 0.93 };
+                        let k = if i % 2 == 0 {
+                            1.22 + 0.18 * jitter
+                        } else {
+                            0.93
+                        };
                         Pt::new(c.x + rx * k * t.cos(), c.y + ry * k * t.sin())
                     })
                     .collect()
@@ -203,7 +221,11 @@ impl Balloon {
                     let normal = Pt::new(-(b.y - a.y), b.x - a.x).norm();
                     for k in 0..n {
                         let p = a.lerp(b, k as f32 / n as f32);
-                        let off = if k % 2 == 0 { 0.0 } else { -self.font_px * 0.25 };
+                        let off = if k % 2 == 0 {
+                            0.0
+                        } else {
+                            -self.font_px * 0.25
+                        };
                         v.push(p.add(normal.mul(off)));
                     }
                 }
@@ -214,7 +236,10 @@ impl Balloon {
 
     /// Point on the body edge (well inside the outline) facing angle `t`, used for tail bases.
     fn inner_edge(&self, t: f32) -> Pt {
-        Pt::new(self.center.x + self.half.x * 0.8 * t.cos(), self.center.y + self.half.y * 0.8 * t.sin())
+        Pt::new(
+            self.center.x + self.half.x * 0.8 * t.cos(),
+            self.center.y + self.half.y * 0.8 * t.sin(),
+        )
     }
 
     fn tail_angle(&self) -> f32 {
@@ -236,13 +261,19 @@ impl Balloon {
         }
         // Curved: both sides bend the same way (quadratic curves).
         let mid = a.lerp(b, 0.5).lerp(tip, 0.5);
-        let bend = Pt::new(-(tip.y - mid.y), tip.x - mid.x).norm().mul(tip.sub(mid).len() * 0.35);
+        let bend = Pt::new(-(tip.y - mid.y), tip.x - mid.x)
+            .norm()
+            .mul(tip.sub(mid).len() * 0.35);
         let ctrl = mid.add(bend);
         let quad = |p0: Pt, p1: Pt, p2: Pt, n: usize| -> Vec<Pt> {
-            (0..=n).map(|i| {
-                let s = i as f32 / n as f32;
-                p0.mul((1.0 - s) * (1.0 - s)).add(p1.mul(2.0 * s * (1.0 - s))).add(p2.mul(s * s))
-            }).collect()
+            (0..=n)
+                .map(|i| {
+                    let s = i as f32 / n as f32;
+                    p0.mul((1.0 - s) * (1.0 - s))
+                        .add(p1.mul(2.0 * s * (1.0 - s)))
+                        .add(p2.mul(s * s))
+                })
+                .collect()
         };
         let mut v = quad(a, ctrl.lerp(a, 0.2), tip, 16);
         let mut back = quad(tip, ctrl.lerp(b, 0.2), b, 16);
@@ -258,15 +289,22 @@ impl Balloon {
         }
         let start = self.inner_edge(self.tail_angle()).lerp(self.center, -0.35);
         let r0 = self.half.x.min(self.half.y) * 0.16;
-        (0..3).map(|i| {
-            let s = (i as f32 + 1.0) / 3.0;
-            (start.lerp(self.tail_tip, s), r0 * (1.0 - 0.28 * i as f32))
-        }).collect()
+        (0..3)
+            .map(|i| {
+                let s = (i as f32 + 1.0) / 3.0;
+                (start.lerp(self.tail_tip, s), r0 * (1.0 - 0.28 * i as f32))
+            })
+            .collect()
     }
 
     fn handles(&self) -> [Pt; 4] {
         let (c, h) = (self.center, self.half);
-        [Pt::new(c.x - h.x, c.y - h.y), Pt::new(c.x + h.x, c.y - h.y), Pt::new(c.x + h.x, c.y + h.y), Pt::new(c.x - h.x, c.y + h.y)]
+        [
+            Pt::new(c.x - h.x, c.y - h.y),
+            Pt::new(c.x + h.x, c.y - h.y),
+            Pt::new(c.x + h.x, c.y + h.y),
+            Pt::new(c.x - h.x, c.y + h.y),
+        ]
     }
 
     /// Hit-test in canvas pixels; `slop` = handle grab radius.
@@ -282,7 +320,11 @@ impl Balloon {
         let d = p.sub(self.center);
         let (nx, ny) = (d.x / self.half.x.max(1.0), d.y / self.half.y.max(1.0));
         let inside = match self.style {
-            BalloonStyle::Rectangle | BalloonStyle::Narration | BalloonStyle::Rounded | BalloonStyle::Electronic | BalloonStyle::TextOnly => nx.abs() <= 1.0 && ny.abs() <= 1.0,
+            BalloonStyle::Rectangle
+            | BalloonStyle::Narration
+            | BalloonStyle::Rounded
+            | BalloonStyle::Electronic
+            | BalloonStyle::TextOnly => nx.abs() <= 1.0 && ny.abs() <= 1.0,
             _ => nx * nx + ny * ny <= 1.15,
         };
         inside.then_some(BalloonHit::Body)
@@ -292,7 +334,10 @@ impl Balloon {
     pub fn drag_corner(&mut self, corner: u8, p: Pt) {
         let opp = self.handles()[((corner + 2) % 4) as usize];
         let min = self.font_px * 1.2;
-        let half = Pt::new(((p.x - opp.x).abs() / 2.0).max(min), ((p.y - opp.y).abs() / 2.0).max(min));
+        let half = Pt::new(
+            ((p.x - opp.x).abs() / 2.0).max(min),
+            ((p.y - opp.y).abs() / 2.0).max(min),
+        );
         self.center = Pt::new((p.x + opp.x) / 2.0, (p.y + opp.y) / 2.0);
         self.half = half;
         self.auto_fit = false;
@@ -307,8 +352,14 @@ impl Balloon {
     /// Bounding box including tail and outline (for redraw regions).
     pub fn bounds(&self) -> (Pt, Pt) {
         let m = self.line * 2.0 + 4.0;
-        let mut lo = Pt::new(self.center.x - self.half.x * 1.45, self.center.y - self.half.y * 1.45);
-        let mut hi = Pt::new(self.center.x + self.half.x * 1.45, self.center.y + self.half.y * 1.45);
+        let mut lo = Pt::new(
+            self.center.x - self.half.x * 1.45,
+            self.center.y - self.half.y * 1.45,
+        );
+        let mut hi = Pt::new(
+            self.center.x + self.half.x * 1.45,
+            self.center.y + self.half.y * 1.45,
+        );
         if self.tail != TailStyle::None {
             lo = Pt::new(lo.x.min(self.tail_tip.x), lo.y.min(self.tail_tip.y));
             hi = Pt::new(hi.x.max(self.tail_tip.x), hi.y.max(self.tail_tip.y));
@@ -337,16 +388,28 @@ impl Balloon {
             }
             // 3. Thought bubbles are separate small balloons.
             for (c, rad) in self.tail_bubbles() {
-                let circle: Vec<Pt> = (0..48).map(|i| {
-                    let a = i as f32 / 48.0 * TAU;
-                    Pt::new(c.x + rad * a.cos(), c.y + rad * 0.8 * a.sin())
-                }).collect();
-                stroke_polyline(r, &circle, true, &outline_pen(self.line * 2.0), self.ink, canvas);
+                let circle: Vec<Pt> = (0..48)
+                    .map(|i| {
+                        let a = i as f32 / 48.0 * TAU;
+                        Pt::new(c.x + rad * a.cos(), c.y + rad * 0.8 * a.sin())
+                    })
+                    .collect();
+                stroke_polyline(
+                    r,
+                    &circle,
+                    true,
+                    &outline_pen(self.line * 2.0),
+                    self.ink,
+                    canvas,
+                );
                 fill_polygon(r, &circle, self.paper);
             }
         }
         let l = self.layout(fonts);
-        let origin = Pt::new(self.center.x - l.width / 2.0, self.center.y - l.height / 2.0);
+        let origin = Pt::new(
+            self.center.x - l.width / 2.0,
+            self.center.y - l.height / 2.0,
+        );
         l.render(fonts, r, origin, self.ink);
     }
 }
@@ -376,7 +439,14 @@ mod tests {
     fn every_style_renders_a_closed_white_body_with_black_outline() {
         let f = fonts();
         for (i, style) in BalloonStyle::ALL.into_iter().enumerate() {
-            let mut b = Balloon::new(i as u64 + 1, style, Pt::new(600.0, 500.0), 300, "", TextDir::Vertical);
+            let mut b = Balloon::new(
+                i as u64 + 1,
+                style,
+                Pt::new(600.0, 500.0),
+                300,
+                "",
+                TextDir::Vertical,
+            );
             b.half = Pt::new(220.0, 160.0);
             let mut r = Raster::new();
             b.render(&f, &mut r, (1200, 1000));
@@ -386,7 +456,8 @@ mod tests {
             }
             assert_eq!(r.get(600, 500), Rgba::WHITE, "{style:?} center is white");
             // Walk right from the center: must hit black ink before leaving the bounds.
-            let hit = (600..1000).any(|x| r.get(x, 500).to_straight()[0] < 60 && r.get(x, 500).a() > 200);
+            let hit =
+                (600..1000).any(|x| r.get(x, 500).to_straight()[0] < 60 && r.get(x, 500).a() > 200);
             assert!(hit, "{style:?} has an outline on the right");
             assert_eq!(r.get(1150, 950).a(), 0, "{style:?} nothing far away");
         }
@@ -395,7 +466,14 @@ mod tests {
     #[test]
     fn tail_merges_with_body() {
         let f = fonts();
-        let mut b = Balloon::new(1, BalloonStyle::Oval, Pt::new(500.0, 400.0), 300, "", TextDir::Vertical);
+        let mut b = Balloon::new(
+            1,
+            BalloonStyle::Oval,
+            Pt::new(500.0, 400.0),
+            300,
+            "",
+            TextDir::Vertical,
+        );
         b.half = Pt::new(200.0, 150.0);
         b.tail_tip = Pt::new(500.0, 800.0);
         let mut r = Raster::new();
@@ -403,16 +481,30 @@ mod tests {
         // Where the tail meets the body (just inside the body's bottom edge) there is no
         // outline across the tail: it's white.
         assert_eq!(r.get(500, 548), Rgba::WHITE, "join is open");
-        assert_eq!(r.get(500, 650).to_straight()[0], 255, "tail interior is white");
+        assert_eq!(
+            r.get(500, 650).to_straight()[0],
+            255,
+            "tail interior is white"
+        );
     }
 
     #[test]
     fn hit_testing_and_dragging() {
-        let mut b = Balloon::new(1, BalloonStyle::Oval, Pt::new(500.0, 400.0), 300, "テスト", TextDir::Vertical);
+        let mut b = Balloon::new(
+            1,
+            BalloonStyle::Oval,
+            Pt::new(500.0, 400.0),
+            300,
+            "テスト",
+            TextDir::Vertical,
+        );
         b.half = Pt::new(200.0, 150.0);
         assert_eq!(b.hit(Pt::new(500.0, 400.0), 10.0), Some(BalloonHit::Body));
         assert_eq!(b.hit(b.tail_tip, 10.0), Some(BalloonHit::Tail));
-        assert_eq!(b.hit(Pt::new(300.0, 250.0), 10.0), Some(BalloonHit::Corner(0)));
+        assert_eq!(
+            b.hit(Pt::new(300.0, 250.0), 10.0),
+            Some(BalloonHit::Corner(0))
+        );
         assert_eq!(b.hit(Pt::new(900.0, 900.0), 10.0), None);
         let tip = b.tail_tip;
         b.translate(Pt::new(10.0, 20.0));
@@ -427,7 +519,14 @@ mod tests {
         if f.is_empty() {
             return;
         }
-        let mut b = Balloon::new(1, BalloonStyle::Oval, Pt::new(500.0, 400.0), 300, "あ", TextDir::Vertical);
+        let mut b = Balloon::new(
+            1,
+            BalloonStyle::Oval,
+            Pt::new(500.0, 400.0),
+            300,
+            "あ",
+            TextDir::Vertical,
+        );
         b.fit_to_text(&f);
         let small = b.half;
         b.text = "ありがとう\nございます".into();

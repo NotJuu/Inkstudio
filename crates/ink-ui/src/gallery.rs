@@ -39,7 +39,11 @@ impl Default for GalleryState {
 fn section(ui: &mut Ui, title: &str, body: impl FnOnce(&mut Ui)) {
     let p = palette(ui);
     ui.add_space(tokens::space::S5);
-    ui.label(RichText::new(title).text_style(text::label()).color(p.text_muted));
+    ui.label(
+        RichText::new(title)
+            .text_style(text::label())
+            .color(p.text_muted),
+    );
     ui.add_space(tokens::space::S2);
     body(ui);
 }
@@ -65,7 +69,10 @@ fn layer(name: &str, kind: LayerKind) -> LayerRowState {
 pub fn show(ui: &mut Ui, s: &mut GalleryState) {
     let p = palette(ui);
     ui.label(RichText::new("Inkstudio design system").text_style(text::heading()));
-    ui.label(RichText::new("Every primitive and state. Colors and sizes come from tokens.json.").color(p.text_muted));
+    ui.label(
+        RichText::new("Every primitive and state. Colors and sizes come from tokens.json.")
+            .color(p.text_muted),
+    );
 
     ui.columns(3, |cols| {
         // ---- Column 1: buttons, tools, fields --------------------------------------------
@@ -117,8 +124,22 @@ pub fn show(ui: &mut Ui, s: &mut GalleryState) {
             });
         });
         section(ui, "Slider fields · pressure toggles", |ui| {
-            slider_field(ui, "Brush size", &mut s.size, 0.5..=500.0, " px", Some(&mut s.size_pressure));
-            slider_field(ui, "Opacity", &mut s.opacity, 0.0..=100.0, " %", Some(&mut s.opacity_pressure));
+            slider_field(
+                ui,
+                "Brush size",
+                &mut s.size,
+                0.5..=500.0,
+                " px",
+                Some(&mut s.size_pressure),
+            );
+            slider_field(
+                ui,
+                "Opacity",
+                &mut s.opacity,
+                0.0..=100.0,
+                " %",
+                Some(&mut s.opacity_pressure),
+            );
             ui.add_enabled_ui(false, |ui| {
                 let mut v = 40.0;
                 slider_field(ui, "Disabled", &mut v, 0.0..=100.0, " %", None);
@@ -129,7 +150,14 @@ pub fn show(ui: &mut Ui, s: &mut GalleryState) {
                 unit_field(ui, "Trim width", &mut s.width_um, Unit::Mm, 600.0, None);
                 unit_field(ui, "Bleed", &mut s.bleed_um, Unit::Mm, 600.0, None);
                 let mut bad = 0i64;
-                unit_field(ui, "Height", &mut bad, Unit::Mm, 600.0, Some("Must be more than 0"));
+                unit_field(
+                    ui,
+                    "Height",
+                    &mut bad,
+                    Unit::Mm,
+                    600.0,
+                    Some("Must be more than 0"),
+                );
             });
             ui.horizontal(|ui| {
                 let modes = ["Normal", "Multiply", "Screen", "Overlay"];
@@ -143,7 +171,10 @@ pub fn show(ui: &mut Ui, s: &mut GalleryState) {
                 ui.checkbox(&mut s.check, "Refer to other layers");
             });
             let mut t = String::from("Chapter 3");
-            ui.add_sized([200.0, tokens::control_h::SM], egui::TextEdit::singleline(&mut t));
+            ui.add_sized(
+                [200.0, tokens::control_h::SM],
+                egui::TextEdit::singleline(&mut t),
+            );
         });
 
         // ---- Column 2: palettes ---------------------------------------------------------
@@ -227,27 +258,77 @@ pub fn show(ui: &mut Ui, s: &mut GalleryState) {
             ui.add_space(6.0);
             toast(ui, ToastKind::Success, "Saved chapter-03.inks", None);
             ui.add_space(4.0);
-            toast(ui, ToastKind::Error, "Couldn't export: disk is full", Some("Retry"));
+            toast(
+                ui,
+                ToastKind::Error,
+                "Couldn't export: disk is full",
+                Some("Retry"),
+            );
             ui.add_space(4.0);
-            toast(ui, ToastKind::Warning, "Font \"Noto Serif JP\" is missing", Some("Replace"));
+            toast(
+                ui,
+                ToastKind::Warning,
+                "Font \"Noto Serif JP\" is missing",
+                Some("Replace"),
+            );
         });
         section(ui, "Timeline track", |ui| {
             use CelCell::*;
-            let cells = [Start(1), Hold, Hold, Start(2), Hold, Start(3), Hold, Hold, Hold, Blank, Start(4), Hold];
+            let cells = [
+                Start(1),
+                Hold,
+                Hold,
+                Start(2),
+                Hold,
+                Start(3),
+                Hold,
+                Hold,
+                Hold,
+                Blank,
+                Start(4),
+                Hold,
+            ];
             timeline_track(ui, "Character", &cells, 4, true);
-            timeline_track(ui, "Background", &[Start(1), Hold, Hold, Hold, Hold, Hold, Hold, Hold, Hold, Hold, Hold, Hold], 4, false);
+            timeline_track(
+                ui,
+                "Background",
+                &[
+                    Start(1),
+                    Hold,
+                    Hold,
+                    Hold,
+                    Hold,
+                    Hold,
+                    Hold,
+                    Hold,
+                    Hold,
+                    Hold,
+                    Hold,
+                    Hold,
+                ],
+                4,
+                false,
+            );
         });
         section(ui, "Canvas overlays on black / white art", |ui| {
             let (rect, _) = ui.allocate_exact_size(egui::vec2(300.0, 90.0), egui::Sense::hover());
             let half = rect.width() / 2.0;
             let left = egui::Rect::from_min_size(rect.min, egui::vec2(half, rect.height()));
-            let right = egui::Rect::from_min_size(rect.min + egui::vec2(half, 0.0), egui::vec2(half, rect.height()));
+            let right = egui::Rect::from_min_size(
+                rect.min + egui::vec2(half, 0.0),
+                egui::vec2(half, rect.height()),
+            );
             ui.painter().rect_filled(left, 0, Color32::BLACK);
             ui.painter().rect_filled(right, 0, Color32::WHITE);
             let a = rect.left_center() + egui::vec2(16.0, 20.0);
             let b = rect.right_center() + egui::vec2(-16.0, -20.0);
             dual_stroke_line(ui.painter(), a, b, p.overlay_ruler);
-            dual_stroke_line(ui.painter(), rect.left_top() + egui::vec2(16.0, 12.0), rect.right_top() + egui::vec2(-16.0, 12.0), p.overlay_frame_preview);
+            dual_stroke_line(
+                ui.painter(),
+                rect.left_top() + egui::vec2(16.0, 12.0),
+                rect.right_top() + egui::vec2(-16.0, 12.0),
+                p.overlay_frame_preview,
+            );
             handle(ui, a, false);
             handle(ui, b, true);
             handle(ui, rect.center(), false);

@@ -67,7 +67,11 @@ impl Fonts {
             if let Ok(bytes) = std::fs::read(p) {
                 if let Ok(f) = FontVec::try_from_vec_and_index(bytes, 0) {
                     faces.push(f);
-                    names.push(p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
+                    names.push(
+                        p.file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_default(),
+                    );
                 }
             }
         }
@@ -75,7 +79,10 @@ impl Fonts {
     }
 
     pub fn from_bytes(fonts: Vec<Vec<u8>>) -> Self {
-        let faces: Vec<FontVec> = fonts.into_iter().filter_map(|b| FontVec::try_from_vec_and_index(b, 0).ok()).collect();
+        let faces: Vec<FontVec> = fonts
+            .into_iter()
+            .filter_map(|b| FontVec::try_from_vec_and_index(b, 0).ok())
+            .collect();
         let names = (0..faces.len()).map(|i| format!("font {i}")).collect();
         Self { faces, names }
     }
@@ -120,7 +127,35 @@ pub struct TextLayout {
 fn rotated_in_vertical(c: char) -> bool {
     matches!(
         c,
-        'ー' | '－' | '-' | '—' | '―' | '–' | '~' | '〜' | '～' | '…' | '‥' | '(' | ')' | '（' | '）' | '「' | '」' | '『' | '』' | '[' | ']' | '【' | '】' | '〈' | '〉' | '《' | '》' | '<' | '>' | '='
+        'ー' | '－'
+            | '-'
+            | '—'
+            | '―'
+            | '–'
+            | '~'
+            | '〜'
+            | '～'
+            | '…'
+            | '‥'
+            | '('
+            | ')'
+            | '（'
+            | '）'
+            | '「'
+            | '」'
+            | '『'
+            | '』'
+            | '['
+            | ']'
+            | '【'
+            | '】'
+            | '〈'
+            | '〉'
+            | '《'
+            | '》'
+            | '<'
+            | '>'
+            | '='
     )
 }
 
@@ -142,7 +177,8 @@ impl TextLayout {
             TextDir::Vertical => {
                 let pitch = size * 1.45;
                 let ncols = lines.len().max(1);
-                let tallest = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0) as f32 * size;
+                let tallest =
+                    lines.iter().map(|l| l.chars().count()).max().unwrap_or(0) as f32 * size;
                 let width = (ncols as f32 - 1.0) * pitch + size;
                 for (col, line) in lines.iter().enumerate() {
                     // First line is the rightmost column.
@@ -155,10 +191,23 @@ impl TextLayout {
                         } else {
                             (0.5, 0.5)
                         };
-                        glyphs.push(Placed { ch, cell_x: x, cell_y: row as f32 * size, cell: size, rotate: rotated_in_vertical(ch), anchor, baseline: None });
+                        glyphs.push(Placed {
+                            ch,
+                            cell_x: x,
+                            cell_y: row as f32 * size,
+                            cell: size,
+                            rotate: rotated_in_vertical(ch),
+                            anchor,
+                            baseline: None,
+                        });
                     }
                 }
-                Self { glyphs, width, height: tallest, size }
+                Self {
+                    glyphs,
+                    width,
+                    height: tallest,
+                    size,
+                }
             }
             TextDir::Horizontal => {
                 let line_h = size * 1.25;
@@ -168,7 +217,9 @@ impl TextLayout {
                     let mut x = 0.0;
                     let mut row = Vec::new();
                     for ch in line.chars() {
-                        let adv = fonts.face_for(ch).map_or(size * 0.5, |f| f.as_scaled(PxScale::from(size)).h_advance(f.glyph_id(ch)));
+                        let adv = fonts.face_for(ch).map_or(size * 0.5, |f| {
+                            f.as_scaled(PxScale::from(size)).h_advance(f.glyph_id(ch))
+                        });
                         row.push((ch, x));
                         x += adv;
                     }
@@ -190,7 +241,12 @@ impl TextLayout {
                         });
                     }
                 }
-                Self { glyphs, width, height: lines.len() as f32 * line_h, size }
+                Self {
+                    glyphs,
+                    width,
+                    height: lines.len() as f32 * line_h,
+                    size,
+                }
             }
         }
     }
@@ -198,13 +254,20 @@ impl TextLayout {
     /// Draw with the layout's top-left at `origin`.
     pub fn render(&self, fonts: &Fonts, r: &mut Raster, origin: Pt, color: Rgba) {
         for g in &self.glyphs {
-            let Some(face) = fonts.face_for(g.ch) else { continue };
+            let Some(face) = fonts.face_for(g.ch) else {
+                continue;
+            };
             let scale = PxScale::from(self.size);
             let gid = face.glyph_id(g.ch);
             let glyph = gid.with_scale_and_position(scale, ab_glyph::point(0.0, 0.0));
-            let Some(outline) = face.outline_glyph(glyph) else { continue };
+            let Some(outline) = face.outline_glyph(glyph) else {
+                continue;
+            };
             let b = outline.px_bounds();
-            let (gw, gh) = (b.width().ceil() as usize + 1, b.height().ceil() as usize + 1);
+            let (gw, gh) = (
+                b.width().ceil() as usize + 1,
+                b.height().ceil() as usize + 1,
+            );
             let mut bmp = vec![0f32; gw * gh];
             outline.draw(|x, y, c| {
                 if let Some(v) = bmp.get_mut(y as usize * gw + x as usize) {
@@ -223,7 +286,11 @@ impl TextLayout {
             let (dx, dy) = (dx.round() as i32, dy.round() as i32);
             for y in 0..dh {
                 for x in 0..dw {
-                    let c = if g.rotate { bmp[(gh - 1 - x) * gw + y] } else { bmp[y * gw + x] };
+                    let c = if g.rotate {
+                        bmp[(gh - 1 - x) * gw + y]
+                    } else {
+                        bmp[y * gw + x]
+                    };
                     if c <= 0.0 {
                         continue;
                     }
@@ -248,13 +315,18 @@ mod tests {
 
     #[test]
     fn vertical_columns_go_right_to_left_and_down() {
-        let Some(f) = fonts() else { return eprintln!("no CJK font; skipped") };
+        let Some(f) = fonts() else {
+            return eprintln!("no CJK font; skipped");
+        };
         let l = TextLayout::new(&f, "あい\nう", TextDir::Vertical, 40.0);
         assert_eq!(l.glyphs.len(), 3);
         let a = l.glyphs[0];
         let i = l.glyphs[1];
         let u = l.glyphs[2];
-        assert!(i.cell_y > a.cell_y && (i.cell_x - a.cell_x).abs() < 1e-3, "second char below the first");
+        assert!(
+            i.cell_y > a.cell_y && (i.cell_x - a.cell_x).abs() < 1e-3,
+            "second char below the first"
+        );
         assert!(u.cell_x < a.cell_x, "second line left of the first");
         assert!((l.width - (1.45 * 40.0 + 40.0)).abs() < 1e-3);
     }
@@ -281,7 +353,12 @@ mod tests {
                 if c.a() > 0 {
                     n += 1;
                     let (x, y) = ((i % 600) as f32, (i / 600) as f32);
-                    assert!(x >= 95.0 && y >= 90.0 && x <= 105.0 + l.width && y <= 110.0 + l.height, "{dir:?} ink at {x},{y} outside {}x{}", l.width, l.height);
+                    assert!(
+                        x >= 95.0 && y >= 90.0 && x <= 105.0 + l.width && y <= 110.0 + l.height,
+                        "{dir:?} ink at {x},{y} outside {}x{}",
+                        l.width,
+                        l.height
+                    );
                 }
             }
             assert!(n > 500, "{dir:?} drew {n} px");

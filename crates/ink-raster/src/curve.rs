@@ -20,9 +20,16 @@ impl Curve {
         let lut = (0..LUT)
             .map(|i| {
                 let x = i as f32 / (LUT - 1) as f32;
-                let j = points.windows(2).position(|w| x <= w[1].0).unwrap_or(points.len() - 2);
+                let j = points
+                    .windows(2)
+                    .position(|w| x <= w[1].0)
+                    .unwrap_or(points.len() - 2);
                 let (a, b) = (points[j], points[j + 1]);
-                let t = if b.0 > a.0 { (x - a.0) / (b.0 - a.0) } else { 0.0 };
+                let t = if b.0 > a.0 {
+                    (x - a.0) / (b.0 - a.0)
+                } else {
+                    0.0
+                };
                 (a.1 + (b.1 - a.1) * t).clamp(0.0, 1.0)
             })
             .collect();
@@ -35,7 +42,12 @@ impl Curve {
 
     /// y = x^g sampled at 9 points. g > 1: needs more pressure; g < 1: responds early.
     pub fn gamma(g: f32) -> Self {
-        Self::new((0..=8).map(|i| i as f32 / 8.0).map(|x| (x, x.powf(g))).collect())
+        Self::new(
+            (0..=8)
+                .map(|i| i as f32 / 8.0)
+                .map(|x| (x, x.powf(g)))
+                .collect(),
+        )
     }
 
     pub fn points(&self) -> &[(f32, f32)] {

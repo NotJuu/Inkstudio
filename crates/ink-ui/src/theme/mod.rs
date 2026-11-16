@@ -83,7 +83,9 @@ pub fn apply(ctx: &Context, mode: Mode) {
 
 /// The palette for the mode last passed to [`apply`].
 pub fn palette_ctx(ctx: &Context) -> &'static Palette {
-    ctx.data(|d| d.get_temp::<Mode>(egui::Id::NULL)).unwrap_or_default().palette()
+    ctx.data(|d| d.get_temp::<Mode>(egui::Id::NULL))
+        .unwrap_or_default()
+        .palette()
 }
 
 pub fn palette(ui: &egui::Ui) -> &'static Palette {
@@ -124,7 +126,9 @@ fn font_definitions(dirs: &[PathBuf]) -> FontDefinitions {
     let mut add = |key: &str, files: &[&str]| -> bool {
         match find(dirs, files) {
             Some(bytes) => {
-                fonts.font_data.insert(key.into(), Arc::new(FontData::from_owned(bytes)));
+                fonts
+                    .font_data
+                    .insert(key.into(), Arc::new(FontData::from_owned(bytes)));
                 true
             }
             None => false,
@@ -132,16 +136,34 @@ fn font_definitions(dirs: &[PathBuf]) -> FontDefinitions {
     };
     let regular = add("inter-regular", &["Inter-Regular.otf", "Inter-Regular.ttf"]);
     let medium_ok = add("inter-medium", &["Inter-Medium.otf", "Inter-Medium.ttf"]);
-    let semibold_ok = add("inter-semibold", &["Inter-SemiBold.otf", "Inter-SemiBold.ttf"]);
+    let semibold_ok = add(
+        "inter-semibold",
+        &["Inter-SemiBold.otf", "Inter-SemiBold.ttf"],
+    );
     let mono = add("jetbrains-mono", &["JetBrainsMono-Regular.ttf"]);
     let cjk = add(
         "noto-cjk",
-        &["NotoSansJP-Regular.otf", "NotoSansCJK-Regular.ttc", "NotoSansCJKjp-Regular.otf", "YuGothM.ttc", "meiryo.ttc", "msgothic.ttc", "ヒラギノ角ゴシック W3.ttc", "Hiragino Sans GB.ttc", "wqy-zenhei.ttc", "wqy-microhei.ttc"],
+        &[
+            "NotoSansJP-Regular.otf",
+            "NotoSansCJK-Regular.ttc",
+            "NotoSansCJKjp-Regular.otf",
+            "YuGothM.ttc",
+            "meiryo.ttc",
+            "msgothic.ttc",
+            "ヒラギノ角ゴシック W3.ttc",
+            "Hiragino Sans GB.ttc",
+            "wqy-zenhei.ttc",
+            "wqy-microhei.ttc",
+        ],
     );
     egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
     // egui's built-in fonts stay last in each list as a fallback.
-    let base = fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default();
+    let base = fonts
+        .families
+        .get(&FontFamily::Proportional)
+        .cloned()
+        .unwrap_or_default();
     let family = |primary: Option<&str>| {
         // Phosphor is NOT in the text chain: it has empty glyphs for Latin letters, and Inter
         // has its own glyphs in the Private Use Area. Icons always use `icon_font()`.
@@ -161,10 +183,24 @@ fn font_definitions(dirs: &[PathBuf]) -> FontDefinitions {
     };
     let reg = regular.then_some("inter-regular");
     fonts.families.insert(FontFamily::Proportional, family(reg));
-    fonts.families.insert(medium(), family(if medium_ok { Some("inter-medium") } else { reg }));
-    fonts.families.insert(semibold(), family(if semibold_ok { Some("inter-semibold") } else { reg }));
+    fonts.families.insert(
+        medium(),
+        family(if medium_ok { Some("inter-medium") } else { reg }),
+    );
+    fonts.families.insert(
+        semibold(),
+        family(if semibold_ok {
+            Some("inter-semibold")
+        } else {
+            reg
+        }),
+    );
     if mono {
-        fonts.families.entry(FontFamily::Monospace).or_default().insert(0, "jetbrains-mono".into());
+        fonts
+            .families
+            .entry(FontFamily::Monospace)
+            .or_default()
+            .insert(0, "jetbrains-mono".into());
     }
     fonts
 }
@@ -174,7 +210,12 @@ fn cr(r: f32) -> CornerRadius {
 }
 
 fn shadow((x, y, blur, spread, color): (i8, i8, u8, u8, Color32)) -> Shadow {
-    Shadow { offset: [x, y], blur, spread, color }
+    Shadow {
+        offset: [x, y],
+        blur,
+        spread,
+        color,
+    }
 }
 
 pub fn style(mode: Mode) -> Style {
@@ -183,12 +224,27 @@ pub fn style(mode: Mode) -> Style {
     let mut s = Style::default();
 
     s.text_styles = [
-        (TextStyle::Small, FontId::new(font::CAPTION, FontFamily::Proportional)),
-        (TextStyle::Body, FontId::new(font::BODY, FontFamily::Proportional)),
-        (TextStyle::Button, FontId::new(font::BODY, FontFamily::Proportional)),
-        (TextStyle::Monospace, FontId::new(font::BODY, FontFamily::Monospace)),
+        (
+            TextStyle::Small,
+            FontId::new(font::CAPTION, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Body,
+            FontId::new(font::BODY, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Button,
+            FontId::new(font::BODY, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Monospace,
+            FontId::new(font::BODY, FontFamily::Monospace),
+        ),
         (TextStyle::Heading, FontId::new(font::HEADING, semibold())),
-        (text::body_strong(), FontId::new(font::BODY_STRONG, medium())),
+        (
+            text::body_strong(),
+            FontId::new(font::BODY_STRONG, medium()),
+        ),
         (text::label(), FontId::new(font::LABEL, medium())),
         (text::title(), FontId::new(font::TITLE, semibold())),
         (text::display(), FontId::new(font::DISPLAY, semibold())),
@@ -256,7 +312,13 @@ pub fn style(mode: Mode) -> Style {
     w.open.weak_bg_fill = p.surface_active;
     w.open.bg_stroke = Stroke::new(stroke::HAIRLINE, p.border_strong);
     w.open.fg_stroke = Stroke::new(stroke::HAIRLINE, p.text);
-    for wv in [&mut w.noninteractive, &mut w.inactive, &mut w.hovered, &mut w.active, &mut w.open] {
+    for wv in [
+        &mut w.noninteractive,
+        &mut w.inactive,
+        &mut w.hovered,
+        &mut w.active,
+        &mut w.open,
+    ] {
         wv.corner_radius = cr(radius::MD);
         wv.expansion = 0.0;
     }

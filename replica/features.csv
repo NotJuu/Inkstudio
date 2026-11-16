@@ -133,3 +133,19 @@ Balloon style picker tool with drag/resize/tail editing,text,must,partial,app,"1
 "Panel templates (4-koma, 5-panel, grids)",manga,should,partial,app,
 English and German UI,ui,must,yes,app,follows system language; completeness test
 Unsaved-changes prompt (new/open/quit/close window),file,must,yes,app,
+Perspective rulers (1/2/3 vanishing points) with draggable handles,drawing,must,yes,app,strokes lock to nearest VP or vertical
+"Symmetry rulers: mirror, kaleidoscope, rotational",drawing,must,yes,app,one stroke stamped N times
+"Parallel, focus and concentric rulers",drawing,should,yes,app,
+Eyedropper tool and Alt+click pick,color,must,yes,app,
+Lasso fill,color,must,yes,app,
+Gradient tool (main→sub / main→transparent),color,must,yes,app,
+Fill all closed areas (auto flats),color,should,partial,app,each area its own color on a Flats layer
+"Clipped shadow / light layers in one click",color,should,yes,app,
+"HSV/RGB sliders, hex, color sets, recent colors",color,must,yes,app,sets saved in settings
+Concept art sheets (2K/4K) and layout,concept,should,yes,app,
+Value check (grayscale view),concept,should,yes,app,Shift+V
+"Book info and special pages: cover, title, credits, contents, afterword, back cover",manga,must,yes,app,
+Story page numbering after front matter,manga,should,yes,app,
+Right-to-left reader with two-page spreads,manga,must,yes,app,F5; single/double
+"Multi-track animation timeline with ruler, scrubbing, hide/rename tracks",anim,must,yes,app,
+"Insert/delete frame, duplicate cel, onion range and opacity",anim,must,yes,app,

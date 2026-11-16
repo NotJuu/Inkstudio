@@ -1,4 +1,4 @@
-use crate::geom::{closest_on_segment, segment_intersection, Affine, Pt};
+use crate::geom::{Affine, Pt, closest_on_segment, segment_intersection};
 use ink_core::{Document, Layer, Raster, Rgba};
 use ink_raster::{BrushParams, PathPoint, Sample, Stroke};
 
@@ -15,7 +15,13 @@ pub struct VStroke {
 impl VStroke {
     /// Build from a finished raster-engine path: bakes start/end taper into per-point scale so
     /// that cutting the stroke later never re-tapers the cut ends.
-    pub fn from_path(id: u64, path: &[PathPoint], length: f32, brush: &BrushParams, color: Rgba) -> Self {
+    pub fn from_path(
+        id: u64,
+        path: &[PathPoint],
+        length: f32,
+        brush: &BrushParams,
+        color: Rgba,
+    ) -> Self {
         let (ts, te) = (brush.taper_start, brush.taper_end.min(length * 0.5));
         let points = path
             .iter()
@@ -38,7 +44,12 @@ impl VStroke {
         b.taper_end = 0.0;
         b.stabilization = 0;
         b.post_correction = false;
-        Self { id, points, brush: b, color }
+        Self {
+            id,
+            points,
+            brush: b,
+            color,
+        }
     }
 
     fn pts(&self) -> impl Iterator<Item = Pt> + '_ {
@@ -82,7 +93,11 @@ impl VStroke {
             let i = cum.partition_point(|&c| c < l).clamp(1, cum.len() - 1);
             let (a, b) = (self.points[i - 1], self.points[i]);
             let seg = cum[i] - cum[i - 1];
-            let t = if seg > 0.0 { ((l - cum[i - 1]) / seg).clamp(0.0, 1.0) } else { 0.0 };
+            let t = if seg > 0.0 {
+                ((l - cum[i - 1]) / seg).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
             Sample {
                 x: a.x + (b.x - a.x) * t,
                 y: a.y + (b.y - a.y) * t,
@@ -98,7 +113,12 @@ impl VStroke {
             }
         }
         pts.push(at(l1));
-        Some(VStroke { id: new_id, points: pts, brush: self.brush.clone(), color: self.color })
+        Some(VStroke {
+            id: new_id,
+            points: pts,
+            brush: self.brush.clone(),
+            color: self.color,
+        })
     }
 
     /// Arc length of the closest point to `p` if within `radius`.
@@ -207,12 +227,18 @@ impl VectorLayer {
                     let pts: Vec<Pt> = s.pts().collect();
                     let cum = s.cumulative();
                     let inside = |l: f32| {
-                        let i = cum.partition_point(|&c| c < l).clamp(1, cum.len().max(2) - 1);
+                        let i = cum
+                            .partition_point(|&c| c < l)
+                            .clamp(1, cum.len().max(2) - 1);
                         if pts.len() < 2 {
                             return true;
                         }
                         let seg = cum[i] - cum[i - 1];
-                        let t = if seg > 0.0 { ((l - cum[i - 1]) / seg).clamp(0.0, 1.0) } else { 0.0 };
+                        let t = if seg > 0.0 {
+                            ((l - cum[i - 1]) / seg).clamp(0.0, 1.0)
+                        } else {
+                            0.0
+                        };
                         pts[i - 1].lerp(pts[i], t).sub(p).len() <= radius + s.brush.size * 0.5
                     };
                     let step = 0.5;
@@ -227,7 +253,11 @@ impl VectorLayer {
                     (a.max(0.0), b.min(total))
                 }
                 EraseMode::UpToIntersection => {
-                    let mut xs: Vec<f32> = all.iter().filter(|o| o.id != s.id).flat_map(|o| s.crossings(o)).collect();
+                    let mut xs: Vec<f32> = all
+                        .iter()
+                        .filter(|o| o.id != s.id)
+                        .flat_map(|o| s.crossings(o))
+                        .collect();
                     xs.sort_by(|a, b| a.total_cmp(b));
                     let a = xs.iter().rev().find(|&&x| x < at).copied().unwrap_or(0.0);
                     let b = xs.iter().find(|&&x| x > at).copied().unwrap_or(total);
@@ -286,7 +316,12 @@ mod tests {
         brush.taper_start = 0.0;
         brush.taper_end = 0.0;
         brush.stabilization = 0;
-        layer.push(VStroke { id: 0, points, brush, color: Rgba::BLACK })
+        layer.push(VStroke {
+            id: 0,
+            points,
+            brush,
+            color: Rgba::BLACK,
+        })
     }
 
     fn total(s: &VStroke) -> f32 {
@@ -301,13 +336,35 @@ mod tests {
         straight(&mut l, Pt::new(100.0, 0.0), Pt::new(100.0, 200.0));
         straight(&mut l, Pt::new(200.0, 0.0), Pt::new(200.0, 200.0));
         assert!(l.erase(Pt::new(150.0, 100.0), 3.0, EraseMode::UpToIntersection));
-        assert_eq!(l.strokes.len(), 4, "horizontal split into two pieces + two verticals");
-        let horiz: Vec<&VStroke> = l.strokes.iter().filter(|s| (s.points[0].y - 100.0).abs() < 0.1 && (s.points.last().unwrap().y - 100.0).abs() < 0.1).collect();
+        assert_eq!(
+            l.strokes.len(),
+            4,
+            "horizontal split into two pieces + two verticals"
+        );
+        let horiz: Vec<&VStroke> = l
+            .strokes
+            .iter()
+            .filter(|s| {
+                (s.points[0].y - 100.0).abs() < 0.1
+                    && (s.points.last().unwrap().y - 100.0).abs() < 0.1
+            })
+            .collect();
         assert_eq!(horiz.len(), 2);
-        let mut ends: Vec<(f32, f32)> = horiz.iter().map(|s| (s.points[0].x, s.points.last().unwrap().x)).collect();
+        let mut ends: Vec<(f32, f32)> = horiz
+            .iter()
+            .map(|s| (s.points[0].x, s.points.last().unwrap().x))
+            .collect();
         ends.sort_by(|a, b| a.0.total_cmp(&b.0));
-        assert!((ends[0].1 - 100.0).abs() < 0.5, "left piece ends at the crossing: {:?}", ends);
-        assert!((ends[1].0 - 200.0).abs() < 0.5, "right piece starts at the crossing: {:?}", ends);
+        assert!(
+            (ends[0].1 - 100.0).abs() < 0.5,
+            "left piece ends at the crossing: {:?}",
+            ends
+        );
+        assert!(
+            (ends[1].0 - 200.0).abs() < 0.5,
+            "right piece starts at the crossing: {:?}",
+            ends
+        );
     }
 
     #[test]

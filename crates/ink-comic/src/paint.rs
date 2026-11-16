@@ -109,12 +109,22 @@ pub fn outline_pen(width: f32) -> BrushParams {
 }
 
 /// Stroke a polyline (closed if `closed`) into the raster with the brush engine.
-pub fn stroke_polyline(r: &mut Raster, pts: &[Pt], closed: bool, pen: &BrushParams, color: Rgba, canvas: (u32, u32)) {
+pub fn stroke_polyline(
+    r: &mut Raster,
+    pts: &[Pt],
+    closed: bool,
+    pen: &BrushParams,
+    color: Rgba,
+    canvas: (u32, u32),
+) {
     if pts.len() < 2 {
         return;
     }
     let mut doc = Document::new(canvas.0, canvas.1, 600);
-    let id = doc.push_layer(Layer { props: ink_core::LayerProps::named("tmp"), raster: std::mem::take(r) });
+    let id = doc.push_layer(Layer {
+        props: ink_core::LayerProps::named("tmp"),
+        raster: std::mem::take(r),
+    });
     let mut s = Stroke::begin(&doc, id, pen.clone(), color);
     for p in pts {
         s.add(&mut doc, Sample::new(p.x, p.y, 1.0));
@@ -136,7 +146,12 @@ mod tests {
     #[test]
     fn fills_square_with_exact_coverage() {
         let mut r = Raster::new();
-        let sq = [Pt::new(10.0, 10.0), Pt::new(20.5, 10.0), Pt::new(20.5, 20.0), Pt::new(10.0, 20.0)];
+        let sq = [
+            Pt::new(10.0, 10.0),
+            Pt::new(20.5, 10.0),
+            Pt::new(20.5, 20.0),
+            Pt::new(10.0, 20.0),
+        ];
         fill_polygon(&mut r, &sq, Rgba::BLACK);
         assert_eq!(r.get(15, 15).a(), 255);
         assert_eq!(r.get(9, 15).a(), 0);

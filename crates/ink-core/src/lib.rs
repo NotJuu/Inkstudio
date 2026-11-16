@@ -17,5 +17,5 @@ pub mod undo;
 pub use color::Rgba;
 pub use document::{Document, LayerId};
 pub use layer::{Layer, LayerProps, Raster};
-pub use tile::{Tile, TileKey, TILE};
+pub use tile::{TILE, Tile, TileKey};
 pub use undo::{History, UndoEntry};

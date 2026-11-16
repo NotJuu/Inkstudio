@@ -19,7 +19,11 @@ impl eframe::App for Shell {
             let samples = t.drain();
             if !samples.is_empty() {
                 let ppp = ctx.pixels_per_point();
-                raw_input.events.extend(inkstudio::tablet::to_events(&samples, ppp, t.drives_pointer()));
+                raw_input.events.extend(inkstudio::tablet::to_events(
+                    &samples,
+                    ppp,
+                    t.drives_pointer(),
+                ));
             }
         }
     }

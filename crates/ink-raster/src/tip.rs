@@ -9,14 +9,24 @@ pub enum TipShape {
     Round,
     Square,
     /// `points`-pointed star; `inner` = inner radius as a fraction of the outer one.
-    Star { points: u8, inner: f32 },
+    Star {
+        points: u8,
+        inner: f32,
+    },
     Heart,
     /// Rounded petals.
-    Flower { petals: u8 },
+    Flower {
+        petals: u8,
+    },
     /// Circle outline; `thickness` as a fraction of the radius.
-    Ring { thickness: f32 },
+    Ring {
+        thickness: f32,
+    },
     /// `lines` parallel lines inside the circle; `width` = line width as a fraction of the pitch.
-    Hatch { lines: u8, width: f32 },
+    Hatch {
+        lines: u8,
+        width: f32,
+    },
 }
 
 /// Paper texture: value noise in canvas space that eats into the coverage (pencil, charcoal).
@@ -135,7 +145,8 @@ impl Grain {
     #[inline]
     pub fn factor(&self, x: f32, y: f32) -> f32 {
         let s = self.scale.max(0.5);
-        let n = 0.65 * value_noise(x / s, y / s) + 0.35 * value_noise(x / (s * 0.43) + 17.0, y / (s * 0.43) + 5.0);
+        let n = 0.65 * value_noise(x / s, y / s)
+            + 0.35 * value_noise(x / (s * 0.43) + 17.0, y / (s * 0.43) + 5.0);
         let n = ((n - 0.5) * self.contrast + 0.5).clamp(0.0, 1.0);
         1.0 - self.strength.clamp(0.0, 1.0) * (1.0 - n)
     }
@@ -150,10 +161,16 @@ mod tests {
         let shapes = [
             TipShape::Round,
             TipShape::Square,
-            TipShape::Star { points: 5, inner: 0.45 },
+            TipShape::Star {
+                points: 5,
+                inner: 0.45,
+            },
             TipShape::Heart,
             TipShape::Flower { petals: 5 },
-            TipShape::Hatch { lines: 3, width: 0.5 },
+            TipShape::Hatch {
+                lines: 3,
+                width: 0.5,
+            },
         ];
         for s in shapes {
             assert!(sdf(s, 0.0, 0.05) < 0.0, "{s:?} center");
@@ -166,7 +183,10 @@ mod tests {
 
     #[test]
     fn star_points_and_valleys() {
-        let s = TipShape::Star { points: 5, inner: 0.4 };
+        let s = TipShape::Star {
+            points: 5,
+            inner: 0.4,
+        };
         assert!(sdf(s, 0.0, -0.95) < 0.0, "top point is inside");
         // Halfway between two points at 0.8 radius is outside (a valley).
         let a = -std::f32::consts::FRAC_PI_2 + std::f32::consts::TAU / 10.0;
@@ -175,7 +195,11 @@ mod tests {
 
     #[test]
     fn grain_is_deterministic_and_bounded() {
-        let g = Grain { scale: 3.0, strength: 0.8, contrast: 2.0 };
+        let g = Grain {
+            scale: 3.0,
+            strength: 0.8,
+            contrast: 2.0,
+        };
         for i in 0..1000 {
             let (x, y) = (i as f32 * 1.7, i as f32 * 0.3);
             let f = g.factor(x, y);

@@ -1,11 +1,13 @@
-use crate::tile::{Tile, TileKey, TILE, TILE_PX};
+use crate::tile::{TILE, TILE_PX, Tile, TileKey};
 use crate::{Layer, Rgba};
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::sync::Arc;
 
 /// Stable layer identity (survives reordering; used by undo and by the file format).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct LayerId(pub u64);
 
 /// One page: a canvas size and a bottom-to-top layer stack.
@@ -24,7 +26,15 @@ pub struct Document {
 
 impl Document {
     pub fn new(width: u32, height: u32, dpi: u32) -> Self {
-        Self { width, height, dpi, paper: Rgba::WHITE, layers: Vec::new(), next_id: 1, dirty: None }
+        Self {
+            width,
+            height,
+            dpi,
+            paper: Rgba::WHITE,
+            layers: Vec::new(),
+            next_id: 1,
+            dirty: None,
+        }
     }
 
     // ---- layers ---------------------------------------------------------------------------
@@ -79,7 +89,10 @@ impl Document {
     /// Mutable layer access. Callers changing pixels must report the tiles with
     /// [`Document::mark_dirty`]; property changes should call [`Document::mark_dirty_layer`].
     pub fn layer_mut(&mut self, id: LayerId) -> Option<&mut Layer> {
-        self.layers.iter_mut().find(|(i, _)| *i == id).map(|(_, l)| l)
+        self.layers
+            .iter_mut()
+            .find(|(i, _)| *i == id)
+            .map(|(_, l)| l)
     }
 
     /// Snapshot of the whole stack (cheap: tiles are shared). Used for structural undo.
@@ -87,7 +100,10 @@ impl Document {
         self.layers.clone()
     }
 
-    pub(crate) fn replace_layers(&mut self, layers: Vec<(LayerId, Layer)>) -> Vec<(LayerId, Layer)> {
+    pub(crate) fn replace_layers(
+        &mut self,
+        layers: Vec<(LayerId, Layer)>,
+    ) -> Vec<(LayerId, Layer)> {
         self.dirty = None;
         std::mem::replace(&mut self.layers, layers)
     }
@@ -101,7 +117,10 @@ impl Document {
     }
 
     pub fn mark_dirty_layer(&mut self, id: LayerId) {
-        let keys: Vec<TileKey> = self.layer(id).map(|l| l.raster.keys().copied().collect()).unwrap_or_default();
+        let keys: Vec<TileKey> = self
+            .layer(id)
+            .map(|l| l.raster.keys().copied().collect())
+            .unwrap_or_default();
         self.mark_dirty(keys);
     }
 
@@ -113,14 +132,22 @@ impl Document {
     pub fn take_dirty(&mut self) -> Vec<TileKey> {
         let (tw, th) = self.tiles_wh();
         match self.dirty.replace(HashSet::new()) {
-            None => (0..th as i32).flat_map(move |y| (0..tw as i32).map(move |x| (x, y))).collect(),
-            Some(set) => set.into_iter().filter(|(x, y)| *x >= 0 && *y >= 0 && (*x as u32) < tw && (*y as u32) < th).collect(),
+            None => (0..th as i32)
+                .flat_map(move |y| (0..tw as i32).map(move |x| (x, y)))
+                .collect(),
+            Some(set) => set
+                .into_iter()
+                .filter(|(x, y)| *x >= 0 && *y >= 0 && (*x as u32) < tw && (*y as u32) < th)
+                .collect(),
         }
     }
 
     /// Canvas size in tiles.
     pub fn tiles_wh(&self) -> (u32, u32) {
-        (self.width.div_ceil(TILE as u32), self.height.div_ceil(TILE as u32))
+        (
+            self.width.div_ceil(TILE as u32),
+            self.height.div_ceil(TILE as u32),
+        )
     }
 
     // ---- compositing ----------------------------------------------------------------------
@@ -141,8 +168,14 @@ impl Document {
             if !p.visible || (!include_draft && p.draft) || (p.clip_below && !base_visible) {
                 continue;
             }
-            let Some(src) = l.raster.tile(key) else { continue };
-            let clip_mask = if p.clip_below { Some(base_alpha.as_deref()) } else { None };
+            let Some(src) = l.raster.tile(key) else {
+                continue;
+            };
+            let clip_mask = if p.clip_below {
+                Some(base_alpha.as_deref())
+            } else {
+                None
+            };
             if let Some(None) = clip_mask {
                 continue; // clipping base is empty here: nothing shows
             }
@@ -166,7 +199,9 @@ impl Document {
 
     /// Composite many tiles in parallel.
     pub fn composite_tiles(&self, keys: &[TileKey], include_draft: bool) -> Vec<(TileKey, Tile)> {
-        keys.par_iter().map(|&k| (k, self.composite_tile(k, include_draft))).collect()
+        keys.par_iter()
+            .map(|&k| (k, self.composite_tile(k, include_draft)))
+            .collect()
     }
 
     /// Flatten the whole page into straight-alpha RGBA8 rows (export). Draft layers excluded.
@@ -175,23 +210,25 @@ impl Document {
         let (w, h) = (self.width as usize, self.height as usize);
         let tw = w.div_ceil(TILE);
         let mut out = vec![0u8; w * h * 4];
-        out.par_chunks_mut(w * TILE * 4).enumerate().for_each(|(ty, band)| {
-            let rows = band.len() / (w * 4);
-            for tx in 0..tw {
-                let t = self.composite_tile((tx as i32, ty as i32), false);
-                let x0 = tx * TILE;
-                let cols = TILE.min(w - x0);
-                for row in 0..rows {
-                    let dst = &mut band[(row * w + x0) * 4..(row * w + x0 + cols) * 4];
-                    for (col, px) in dst.chunks_exact_mut(4).enumerate() {
-                        let c = t.px[row * TILE + col];
-                        // Paper is opaque, so the composite is opaque: no un-premultiply needed.
-                        let c = if c.0[3] == 255 { c.0 } else { c.to_straight() };
-                        px.copy_from_slice(&c);
+        out.par_chunks_mut(w * TILE * 4)
+            .enumerate()
+            .for_each(|(ty, band)| {
+                let rows = band.len() / (w * 4);
+                for tx in 0..tw {
+                    let t = self.composite_tile((tx as i32, ty as i32), false);
+                    let x0 = tx * TILE;
+                    let cols = TILE.min(w - x0);
+                    for row in 0..rows {
+                        let dst = &mut band[(row * w + x0) * 4..(row * w + x0 + cols) * 4];
+                        for (col, px) in dst.chunks_exact_mut(4).enumerate() {
+                            let c = t.px[row * TILE + col];
+                            // Paper is opaque, so the composite is opaque: no un-premultiply needed.
+                            let c = if c.0[3] == 255 { c.0 } else { c.to_straight() };
+                            px.copy_from_slice(&c);
+                        }
                     }
                 }
-            }
-        });
+            });
         out
     }
 }
@@ -236,7 +273,11 @@ mod tests {
         let mut h = History::default();
         let before = d.layer(id).unwrap().raster.tile((0, 0)).cloned();
         d.layer_mut(id).unwrap().raster.set(1, 1, Rgba::BLACK);
-        h.push(UndoEntry::Tiles { label: "stroke".into(), layer: id, tiles: vec![((0, 0), before)] });
+        h.push(UndoEntry::Tiles {
+            label: "stroke".into(),
+            layer: id,
+            tiles: vec![((0, 0), before)],
+        });
         assert_eq!(d.layer(id).unwrap().raster.get(1, 1), Rgba::BLACK);
         h.undo(&mut d);
         assert_eq!(d.layer(id).unwrap().raster.get(1, 1), Rgba::TRANSPARENT);
@@ -251,7 +292,10 @@ mod tests {
         let mut h = History::default();
         let snap = d.snapshot_layers();
         d.push_layer(Layer::new("b"));
-        h.push(UndoEntry::Layers { label: "add".into(), layers: snap });
+        h.push(UndoEntry::Layers {
+            label: "add".into(),
+            layers: snap,
+        });
         assert_eq!(d.layers().len(), 2);
         h.undo(&mut d);
         assert_eq!(d.layers().len(), 1);

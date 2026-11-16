@@ -4,9 +4,9 @@
 //! Line-type rulers decide a direction once the pen has moved a few pixels, then lock it for
 //! the rest of the stroke — that is what makes perspective inking fast.
 
-use crate::geom::{project_on_line, Affine, Pt};
+use crate::geom::{Affine, Pt, project_on_line};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Ruler {
     /// Snap onto the infinite line through a and b.
     Straight { a: Pt, b: Pt },
@@ -21,7 +21,12 @@ pub enum Ruler {
     Concentric { center: Pt },
     /// `lines` symmetry axes through `center` starting at `angle`; `mirror` = line symmetry,
     /// otherwise rotational symmetry.
-    Symmetry { center: Pt, angle: f32, lines: u32, mirror: bool },
+    Symmetry {
+        center: Pt,
+        angle: f32,
+        lines: u32,
+        mirror: bool,
+    },
 }
 
 /// Per-stroke state: the direction a line ruler locked onto.
@@ -32,7 +37,7 @@ pub struct RulerSnap {
 }
 
 /// Movement (px) before a line ruler picks its direction.
-const DECIDE_PX: f32 = 4.0;
+const DECIDE_PX: f32 = 8.0;
 
 impl RulerSnap {
     pub fn new() -> Self {
@@ -47,12 +52,22 @@ impl RulerSnap {
             Ruler::Concentric { center } => {
                 let r = start.sub(*center).len();
                 let d = p.sub(*center);
-                if d.len() < 1e-3 { start } else { center.add(d.norm().mul(r)) }
+                if d.len() < 1e-3 {
+                    start
+                } else {
+                    center.add(d.norm().mul(r))
+                }
             }
-            Ruler::Parallel { angle } => project_on_line(p, start, Pt::new(angle.cos(), angle.sin())),
+            Ruler::Parallel { angle } => {
+                project_on_line(p, start, Pt::new(angle.cos(), angle.sin()))
+            }
             Ruler::Focus { center } => {
                 let dir = start.sub(*center);
-                if dir.len() < 1e-3 { p } else { project_on_line(p, start, dir) }
+                if dir.len() < 1e-3 {
+                    p
+                } else {
+                    project_on_line(p, start, dir)
+                }
             }
             Ruler::Perspective { vps } => {
                 if self.dir.is_none() {
@@ -61,14 +76,17 @@ impl RulerSnap {
                         return start;
                     }
                     let m = moved.norm();
-                    let mut candidates: Vec<Pt> = vps.iter().map(|vp| vp.sub(start).norm()).collect();
+                    let mut candidates: Vec<Pt> =
+                        vps.iter().map(|vp| vp.sub(start).norm()).collect();
                     if vps.len() <= 2 {
                         candidates.push(Pt::new(0.0, 1.0)); // verticals
                     }
                     if vps.len() == 1 {
                         candidates.push(Pt::new(1.0, 0.0)); // horizontals
                     }
-                    self.dir = candidates.into_iter().max_by(|a, b| a.dot(m).abs().total_cmp(&b.dot(m).abs()));
+                    self.dir = candidates
+                        .into_iter()
+                        .max_by(|a, b| a.dot(m).abs().total_cmp(&b.dot(m).abs()));
                 }
                 project_on_line(p, start, self.dir.unwrap_or(Pt::new(1.0, 0.0)))
             }
@@ -80,7 +98,15 @@ impl RulerSnap {
 impl Ruler {
     /// Extra copies to draw for symmetry rulers (the original stroke is not included).
     pub fn symmetry_transforms(&self) -> Vec<Affine> {
-        let Ruler::Symmetry { center, angle, lines, mirror } = self else { return Vec::new() };
+        let Ruler::Symmetry {
+            center,
+            angle,
+            lines,
+            mirror,
+        } = self
+        else {
+            return Vec::new();
+        };
         let n = (*lines).max(1);
         let mut out = Vec::new();
         if *mirror {
@@ -94,7 +120,10 @@ impl Ruler {
             }
         } else {
             for k in 1..n {
-                out.push(Affine::rotate_about(*center, std::f32::consts::TAU * k as f32 / n as f32));
+                out.push(Affine::rotate_about(
+                    *center,
+                    std::f32::consts::TAU * k as f32 / n as f32,
+                ));
             }
         }
         out
@@ -111,7 +140,9 @@ mod tests {
 
     #[test]
     fn perspective_locks_to_nearest_vanishing_point() {
-        let r = Ruler::Perspective { vps: vec![Pt::new(-1000.0, 0.0), Pt::new(1000.0, 0.0)] };
+        let r = Ruler::Perspective {
+            vps: vec![Pt::new(-1000.0, 0.0), Pt::new(1000.0, 0.0)],
+        };
         let mut s = RulerSnap::new();
         s.snap(&r, Pt::new(0.0, 100.0));
         // Moving mostly right → toward the right vanishing point; later wobble stays on that line.
@@ -128,18 +159,25 @@ mod tests {
 
     #[test]
     fn focus_and_parallel_and_concentric() {
-        let f = Ruler::Focus { center: Pt::new(0.0, 0.0) };
+        let f = Ruler::Focus {
+            center: Pt::new(0.0, 0.0),
+        };
         let mut s = RulerSnap::new();
         s.snap(&f, Pt::new(100.0, 100.0));
         let q = s.snap(&f, Pt::new(150.0, 160.0));
-        assert!((q.x - q.y).abs() < 1e-3, "stays on the ray through the center: {q:?}");
+        assert!(
+            (q.x - q.y).abs() < 1e-3,
+            "stays on the ray through the center: {q:?}"
+        );
 
         let p = Ruler::Parallel { angle: 0.0 };
         let mut s = RulerSnap::new();
         s.snap(&p, Pt::new(10.0, 20.0));
         assert!(close(s.snap(&p, Pt::new(80.0, 35.0)), Pt::new(80.0, 20.0)));
 
-        let c = Ruler::Concentric { center: Pt::new(0.0, 0.0) };
+        let c = Ruler::Concentric {
+            center: Pt::new(0.0, 0.0),
+        };
         let mut s = RulerSnap::new();
         s.snap(&c, Pt::new(50.0, 0.0));
         let q = s.snap(&c, Pt::new(0.0, 80.0));
@@ -149,17 +187,38 @@ mod tests {
     #[test]
     fn symmetry_copies() {
         let c = Pt::new(100.0, 100.0);
-        let mirror = Ruler::Symmetry { center: c, angle: std::f32::consts::FRAC_PI_2, lines: 1, mirror: true };
+        let mirror = Ruler::Symmetry {
+            center: c,
+            angle: std::f32::consts::FRAC_PI_2,
+            lines: 1,
+            mirror: true,
+        };
         let t = mirror.symmetry_transforms();
         assert_eq!(t.len(), 1);
-        assert!(close(t[0].apply(Pt::new(90.0, 40.0)), Pt::new(110.0, 40.0)), "vertical mirror axis");
+        assert!(
+            close(t[0].apply(Pt::new(90.0, 40.0)), Pt::new(110.0, 40.0)),
+            "vertical mirror axis"
+        );
 
-        let rot = Ruler::Symmetry { center: c, angle: 0.0, lines: 4, mirror: false };
+        let rot = Ruler::Symmetry {
+            center: c,
+            angle: 0.0,
+            lines: 4,
+            mirror: false,
+        };
         let t = rot.symmetry_transforms();
         assert_eq!(t.len(), 3);
-        assert!(close(t[0].apply(Pt::new(150.0, 100.0)), Pt::new(100.0, 150.0)));
+        assert!(close(
+            t[0].apply(Pt::new(150.0, 100.0)),
+            Pt::new(100.0, 150.0)
+        ));
 
-        let kaleido = Ruler::Symmetry { center: c, angle: 0.0, lines: 6, mirror: true };
+        let kaleido = Ruler::Symmetry {
+            center: c,
+            angle: 0.0,
+            lines: 6,
+            mirror: true,
+        };
         assert_eq!(kaleido.symmetry_transforms().len(), 11);
     }
 }

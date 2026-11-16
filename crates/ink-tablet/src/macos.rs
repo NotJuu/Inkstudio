@@ -28,10 +28,16 @@ impl Drop for Backend {
 
 impl Backend {
     pub fn attach(window: RawWindowHandle, queue: Queue) -> Option<Backend> {
-        let RawWindowHandle::AppKit(h) = window else { return None };
+        let RawWindowHandle::AppKit(h) = window else {
+            return None;
+        };
         // SAFETY: the handle points at the live content NSView of our window; we retain it.
         let view: Retained<NSView> = unsafe { Retained::retain(h.ns_view.as_ptr().cast()) }?;
-        let mask = NSEventMask::LeftMouseDown | NSEventMask::LeftMouseUp | NSEventMask::LeftMouseDragged | NSEventMask::MouseMoved | NSEventMask::TabletPoint;
+        let mask = NSEventMask::LeftMouseDown
+            | NSEventMask::LeftMouseUp
+            | NSEventMask::LeftMouseDragged
+            | NSEventMask::MouseMoved
+            | NSEventMask::TabletPoint;
         let block = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
             // SAFETY: AppKit passes a valid event for the duration of the call.
             let ev = unsafe { event.as_ref() };
@@ -41,7 +47,8 @@ impl Backend {
             event.as_ptr()
         });
         // SAFETY: the block lives as long as the monitor (AppKit copies it).
-        let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(mask, &block) };
+        let monitor =
+            unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(mask, &block) };
         Some(Backend { monitor })
     }
 }

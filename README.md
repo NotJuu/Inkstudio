@@ -25,6 +25,14 @@ cargo run --release -p inkstudio
 | **Rotate, mirror, zoom, pan anywhere.** German UI shown. | **Dockable palettes**: drag any tab to dock, split or float it. The layout is remembered. |
 | ![Open dialog](replica/app/7-open-dialog.png) | ![Animation](replica/app/9-animation-onion-skin.png) |
 | **Save and open `.inks` projects** with recent files and an unsaved-changes prompt. | **Animation**: timeline, cels, holds, onion skin, GIF export. |
+| ![Perspective ruler](replica/app/14-perspective-ruler.png) | ![Kaleidoscope symmetry](replica/app/15-symmetry-kaleidoscope.png) |
+| **Perspective rulers** with 1, 2 or 3 vanishing points: strokes lock onto the line toward the nearest point (or vertical). Drag the handles; the horizon stays level. | **Symmetry**: mirror, kaleidoscope (N axes) and rotational. One stroke is drawn N times. Also parallel, focus and concentric rulers. Hold Alt for one freehand stroke. |
+| ![Coloring](replica/app/16-coloring.png) | ![Concept art](replica/app/17-concept-art.png) |
+| **Coloring**: fill all closed areas with flats in one click, lasso fill, gradient (main → sub / transparent), clipped shadow and light layers, eyedropper (I or Alt + click), HSV/RGB sliders with hex, editable color sets, recent colors. | **Concept art**: 2K / 4K / Full HD sheets in color, a painting layout, and a value check (Shift+V) that shows the canvas in greys. |
+| ![Reader](replica/app/21-reader-rtl-spread.png) | ![Book pages](replica/app/19-book-pages.png) |
+| **Reader (F5)**: read the book like a printed manga, right to left: cover alone, then two-page spreads with the earlier page on the right. ← next, → previous, D single/double. | **A complete volume**: cover, title page, credits, contents, afterword and back cover, filled from *Book → Book info*. Story pages are numbered after the front matter. |
+| ![Book info](replica/app/20-book-info.png) | ![Animation timeline](replica/app/22-animation-timeline.png) |
+| **Book info**: title, volume, story and art credits, publisher, year, description and any number of extra credits. | **Animation timeline**: several tracks with show/hide and rename, a frame ruler with seconds, scrubbing, exposure blocks, new / duplicate / blank cel, insert / delete frame, fps presets, onion skin range and opacity. |
 
 ### Canvas navigation
 
@@ -65,9 +73,24 @@ The backends live in `ink-tablet`. They feed samples into egui as pen events wit
 | Lettering & balloons | wide balloon picker and a tall text editor |
 | Animation | tall timeline, color and cels on the right |
 | Illustration & painting | large color palette, no page strip or timeline |
+| Concept art | big color palette, layers and navigator; nothing below the canvas |
 | Canvas focus | maximum canvas, one tab stack |
 
 *Window → Layouts*: each layout remembers its own arrangement. *Save layout as…* creates your own, and *Reset layout* restores a built-in default. With *Switch layout by sheet type* on, opening a manga page, book, animation or illustration switches to its layout, and the app remembers your last choice per sheet type.
+
+### Tool shortcuts
+
+| key | tool |
+| --- | --- |
+| B / E | brush / eraser |
+| G / L / D | fill / lasso fill / gradient |
+| I (or hold Alt) | eyedropper |
+| U | perspective & symmetry rulers |
+| F / T | panel frames / balloons & text |
+| H / R | hand / rotate view |
+| Shift+V | value check (grayscale) |
+| F5 | read as manga |
+| , / . / Enter | previous / next frame / play (animation) |
 
 ### Files, palettes, languages
 

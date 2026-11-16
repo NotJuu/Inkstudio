@@ -17,7 +17,9 @@ impl Tile {
     pub fn empty() -> Self {
         // Allocate on the heap directly (256 KiB would overflow small stacks).
         let v = vec![Rgba::TRANSPARENT; TILE_PX].into_boxed_slice();
-        Tile { px: v.try_into().unwrap_or_else(|_| unreachable!()) }
+        Tile {
+            px: v.try_into().unwrap_or_else(|_| unreachable!()),
+        }
     }
 
     pub fn filled(c: Rgba) -> Self {
@@ -45,7 +47,11 @@ impl Tile {
 #[inline]
 pub fn split(x: i32, y: i32) -> (TileKey, usize, usize) {
     let t = TILE as i32;
-    ((x.div_euclid(t), y.div_euclid(t)), x.rem_euclid(t) as usize, y.rem_euclid(t) as usize)
+    (
+        (x.div_euclid(t), y.div_euclid(t)),
+        x.rem_euclid(t) as usize,
+        y.rem_euclid(t) as usize,
+    )
 }
 
 /// All tile keys overlapping the pixel rectangle [x0, x1) × [y0, y1).

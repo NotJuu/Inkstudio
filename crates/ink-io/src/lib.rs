@@ -17,7 +17,7 @@
 
 use ink_core::tile::{TILE, TILE_PX};
 use ink_core::{Document, Layer, LayerId, LayerProps, Rgba, Tile};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -134,7 +134,8 @@ fn decode_tile(codec: &str, data: &[u8]) -> Result<Tile, Error> {
     match codec {
         "solid" if data.len() == 4 => Ok(Tile::filled(Rgba([data[0], data[1], data[2], data[3]]))),
         "lz4" => {
-            let raw = lz4_flex::decompress_size_prepended(data).map_err(|e| Error::Corrupt(e.to_string()))?;
+            let raw = lz4_flex::decompress_size_prepended(data)
+                .map_err(|e| Error::Corrupt(e.to_string()))?;
             if raw.len() != TILE_PX * 4 {
                 return Err(Error::Corrupt(format!("tile has {} bytes", raw.len())));
             }
@@ -149,7 +150,12 @@ fn decode_tile(codec: &str, data: &[u8]) -> Result<Tile, Error> {
 }
 
 /// Save a project. Writes `<path>.tmp` then renames it over `path`.
-pub fn save(path: &Path, work_json: &str, pages: &[PageOut<'_>], app_version: &str) -> Result<(), Error> {
+pub fn save(
+    path: &Path,
+    work_json: &str,
+    pages: &[PageOut<'_>],
+    app_version: &str,
+) -> Result<(), Error> {
     let tmp: PathBuf = {
         let mut s = path.as_os_str().to_owned();
         s.push(".tmp");
@@ -168,15 +174,31 @@ pub fn save(path: &Path, work_json: &str, pages: &[PageOut<'_>], app_version: &s
             meta.execute(params!["format", FORMAT])?;
             meta.execute(params!["format_version", FORMAT_VERSION.to_string()])?;
             meta.execute(params!["app_version", app_version])?;
-            tx.execute("INSERT INTO work (id, json) VALUES (1, ?1)", params![work_json])?;
+            tx.execute(
+                "INSERT INTO work (id, json) VALUES (1, ?1)",
+                params![work_json],
+            )?;
             let mut pst = tx.prepare("INSERT INTO page (idx, width, height, dpi, paper, json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")?;
-            let mut lst = tx.prepare("INSERT INTO layer (page, id, z, props) VALUES (?1, ?2, ?3, ?4)")?;
+            let mut lst =
+                tx.prepare("INSERT INTO layer (page, id, z, props) VALUES (?1, ?2, ?3, ?4)")?;
             let mut tst = tx.prepare("INSERT INTO tile (page, layer, tx, ty, codec, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")?;
             for (pi, p) in pages.iter().enumerate() {
                 let d = p.doc;
-                pst.execute(params![pi as i64, d.width as i64, d.height as i64, d.dpi as i64, rgba_u32(d.paper), p.json])?;
+                pst.execute(params![
+                    pi as i64,
+                    d.width as i64,
+                    d.height as i64,
+                    d.dpi as i64,
+                    rgba_u32(d.paper),
+                    p.json
+                ])?;
                 for (z, (id, layer)) in d.layers().iter().enumerate() {
-                    lst.execute(params![pi as i64, id.0 as i64, z as i64, serde_json::to_string(&layer.props)?])?;
+                    lst.execute(params![
+                        pi as i64,
+                        id.0 as i64,
+                        z as i64,
+                        serde_json::to_string(&layer.props)?
+                    ])?;
                     let mut keys: Vec<_> = layer.raster.keys().copied().collect();
                     keys.sort();
                     for k in keys {
@@ -185,7 +207,14 @@ pub fn save(path: &Path, work_json: &str, pages: &[PageOut<'_>], app_version: &s
                             continue;
                         }
                         let (codec, data) = encode_tile(t);
-                        tst.execute(params![pi as i64, id.0 as i64, k.0 as i64, k.1 as i64, codec, data])?;
+                        tst.execute(params![
+                            pi as i64,
+                            id.0 as i64,
+                            k.0 as i64,
+                            k.1 as i64,
+                            codec,
+                            data
+                        ])?;
                     }
                 }
             }
@@ -202,38 +231,73 @@ pub fn save(path: &Path, work_json: &str, pages: &[PageOut<'_>], app_version: &s
 /// Open a project.
 pub fn load(path: &Path) -> Result<ProjectIn, Error> {
     let db = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-    let get_meta = |k: &str| -> Option<String> { db.query_row("SELECT value FROM meta WHERE key = ?1", params![k], |r| r.get(0)).ok() };
+    let get_meta = |k: &str| -> Option<String> {
+        db.query_row("SELECT value FROM meta WHERE key = ?1", params![k], |r| {
+            r.get(0)
+        })
+        .ok()
+    };
     if get_meta("format").as_deref() != Some(FORMAT) {
         return Err(Error::NotInkstudio);
     }
-    let version: i64 = get_meta("format_version").and_then(|v| v.parse().ok()).ok_or(Error::NotInkstudio)?;
+    let version: i64 = get_meta("format_version")
+        .and_then(|v| v.parse().ok())
+        .ok_or(Error::NotInkstudio)?;
     if version > FORMAT_VERSION {
         return Err(Error::TooNew(version));
     }
     let app_version = get_meta("app_version").unwrap_or_default();
     let work_json: String = db.query_row("SELECT json FROM work WHERE id = 1", [], |r| r.get(0))?;
     let mut pages = Vec::new();
-    let mut pst = db.prepare("SELECT idx, width, height, dpi, paper, json FROM page ORDER BY idx")?;
-    let rows: Vec<(i64, i64, i64, i64, i64, String)> = pst.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?.collect::<Result<_, _>>()?;
+    let mut pst =
+        db.prepare("SELECT idx, width, height, dpi, paper, json FROM page ORDER BY idx")?;
+    let rows: Vec<(i64, i64, i64, i64, i64, String)> = pst
+        .query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+            ))
+        })?
+        .collect::<Result<_, _>>()?;
     let mut lst = db.prepare("SELECT id, props FROM layer WHERE page = ?1 ORDER BY z")?;
-    let mut tst = db.prepare("SELECT tx, ty, codec, data FROM tile WHERE page = ?1 AND layer = ?2")?;
+    let mut tst =
+        db.prepare("SELECT tx, ty, codec, data FROM tile WHERE page = ?1 AND layer = ?2")?;
     for (idx, w, h, dpi, paper, json) in rows {
         let mut doc = Document::new(w as u32, h as u32, dpi as u32);
         doc.paper = u32_rgba(paper);
-        let layers: Vec<(i64, String)> = lst.query_map(params![idx], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+        let layers: Vec<(i64, String)> = lst
+            .query_map(params![idx], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<Result<_, _>>()?;
         for (id, props) in layers {
             let props: LayerProps = serde_json::from_str(&props)?;
-            let mut layer = Layer { props, raster: Default::default() };
-            let tiles: Vec<(i64, i64, String, Vec<u8>)> = tst.query_map(params![idx, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;
+            let mut layer = Layer {
+                props,
+                raster: Default::default(),
+            };
+            let tiles: Vec<(i64, i64, String, Vec<u8>)> = tst
+                .query_map(params![idx, id], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+                })?
+                .collect::<Result<_, _>>()?;
             for (tx, ty, codec, data) in tiles {
                 let t = decode_tile(&codec, &data)?;
-                layer.raster.put_tile((tx as i32, ty as i32), Some(Arc::new(t)));
+                layer
+                    .raster
+                    .put_tile((tx as i32, ty as i32), Some(Arc::new(t)));
             }
             doc.push_layer_with_id(LayerId(id as u64), layer);
         }
         pages.push(PageIn { json, doc });
     }
-    Ok(ProjectIn { work_json, pages, app_version })
+    Ok(ProjectIn {
+        work_json,
+        pages,
+        app_version,
+    })
 }
 
 const _: () = assert!(TILE == 256);
@@ -256,7 +320,11 @@ mod tests {
         a.props.reference = true;
         a.props.blend = BlendMode::Multiply;
         for i in 0..900 {
-            a.raster.set(i, (i / 2) as i32, Rgba::from_straight(10, 20, (i % 255) as u8, 200));
+            a.raster.set(
+                i,
+                (i / 2) as i32,
+                Rgba::from_straight(10, 20, (i % 255) as u8, 200),
+            );
         }
         let mut b = Layer::new("Fill");
         for y in 256..512 {
@@ -273,19 +341,34 @@ mod tests {
     fn roundtrip_preserves_pixels_props_ids_and_json() {
         let doc = sample_doc();
         let path = tmp("roundtrip.inks");
-        save(&path, r#"{"name":"test"}"#, &[PageOut { json: r#"{"p":1}"#.into(), doc: &doc }], "0.1.0").unwrap();
+        save(
+            &path,
+            r#"{"name":"test"}"#,
+            &[PageOut {
+                json: r#"{"p":1}"#.into(),
+                doc: &doc,
+            }],
+            "0.1.0",
+        )
+        .unwrap();
         let back = load(&path).unwrap();
         assert_eq!(back.work_json, r#"{"name":"test"}"#);
         assert_eq!(back.pages.len(), 1);
         let d2 = &back.pages[0].doc;
-        assert_eq!((d2.width, d2.height, d2.dpi, d2.paper), (1000, 700, 350, Rgba::TRANSPARENT));
+        assert_eq!(
+            (d2.width, d2.height, d2.dpi, d2.paper),
+            (1000, 700, 350, Rgba::TRANSPARENT)
+        );
         assert_eq!(d2.layers().len(), 2);
         for ((ia, la), (ib, lb)) in doc.layers().iter().zip(d2.layers()) {
             assert_eq!(ia, ib, "layer ids survive");
             assert_eq!(la.props.name, lb.props.name);
             assert_eq!(la.props.blend, lb.props.blend);
             assert_eq!(la.props.reference, lb.props.reference);
-            assert!(la.raster.read_rect(0, 0, 1000, 700) == lb.raster.read_rect(0, 0, 1000, 700), "pixels survive");
+            assert!(
+                la.raster.read_rect(0, 0, 1000, 700) == lb.raster.read_rect(0, 0, 1000, 700),
+                "pixels survive"
+            );
         }
     }
 
@@ -293,14 +376,32 @@ mod tests {
     fn refuses_foreign_and_newer_files() {
         let path = tmp("foreign.inks");
         let _ = std::fs::remove_file(&path);
-        Connection::open(&path).unwrap().execute_batch("CREATE TABLE x (a); INSERT INTO x VALUES (1);").unwrap();
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE x (a); INSERT INTO x VALUES (1);")
+            .unwrap();
         assert!(matches!(load(&path), Err(Error::NotInkstudio)));
 
         let path = tmp("newer.inks");
         let doc = sample_doc();
-        save(&path, "{}", &[PageOut { json: "{}".into(), doc: &doc }], "x").unwrap();
+        save(
+            &path,
+            "{}",
+            &[PageOut {
+                json: "{}".into(),
+                doc: &doc,
+            }],
+            "x",
+        )
+        .unwrap();
         // Bump the version in place.
-        Connection::open(&path).unwrap().execute("UPDATE meta SET value = '99' WHERE key = 'format_version'", []).unwrap();
+        Connection::open(&path)
+            .unwrap()
+            .execute(
+                "UPDATE meta SET value = '99' WHERE key = 'format_version'",
+                [],
+            )
+            .unwrap();
         assert!(matches!(load(&path), Err(Error::TooNew(99))));
     }
 
@@ -308,10 +409,34 @@ mod tests {
     fn overwrite_replaces_atomically_and_compresses() {
         let path = tmp("overwrite.inks");
         let doc = sample_doc();
-        save(&path, "{}", &[PageOut { json: "{}".into(), doc: &doc }], "x").unwrap();
+        save(
+            &path,
+            "{}",
+            &[PageOut {
+                json: "{}".into(),
+                doc: &doc,
+            }],
+            "x",
+        )
+        .unwrap();
         let mut d2 = sample_doc();
         d2.push_layer(Layer::new("extra"));
-        save(&path, "{}", &[PageOut { json: "{}".into(), doc: &d2 }, PageOut { json: "{}".into(), doc: &doc }], "x").unwrap();
+        save(
+            &path,
+            "{}",
+            &[
+                PageOut {
+                    json: "{}".into(),
+                    doc: &d2,
+                },
+                PageOut {
+                    json: "{}".into(),
+                    doc: &doc,
+                },
+            ],
+            "x",
+        )
+        .unwrap();
         let back = load(&path).unwrap();
         assert_eq!(back.pages.len(), 2);
         assert_eq!(back.pages[0].doc.layers().len(), 3);

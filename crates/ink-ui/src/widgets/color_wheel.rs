@@ -1,7 +1,9 @@
 use super::focus_ring;
 use crate::theme::{palette, tokens};
 use egui::epaint::{Mesh, Vertex};
-use egui::{Color32, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, WidgetInfo, WidgetType, pos2, vec2};
+use egui::{
+    Color32, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, WidgetInfo, WidgetType, pos2, vec2,
+};
 use std::f32::consts::TAU;
 
 /// Hue / saturation / value, all 0..=1.
@@ -26,7 +28,11 @@ impl Hsv {
             4 => (t, p, v),
             _ => (v, p, q),
         };
-        Color32::from_rgb((r * 255.0).round() as u8, (g * 255.0).round() as u8, (b * 255.0).round() as u8)
+        Color32::from_rgb(
+            (r * 255.0).round() as u8,
+            (g * 255.0).round() as u8,
+            (b * 255.0).round() as u8,
+        )
     }
 }
 
@@ -68,7 +74,13 @@ pub fn color_wheel(ui: &mut Ui, hsv: &mut Hsv, size: f32) -> Response {
     }
     if resp.has_focus() {
         let (l, r, u, d, shift) = ui.input(|i| {
-            (i.key_pressed(egui::Key::ArrowLeft), i.key_pressed(egui::Key::ArrowRight), i.key_pressed(egui::Key::ArrowUp), i.key_pressed(egui::Key::ArrowDown), i.modifiers.shift)
+            (
+                i.key_pressed(egui::Key::ArrowLeft),
+                i.key_pressed(egui::Key::ArrowRight),
+                i.key_pressed(egui::Key::ArrowUp),
+                i.key_pressed(egui::Key::ArrowDown),
+                i.modifiers.shift,
+            )
         });
         let step = 1.0 / 100.0;
         if l || r {
@@ -90,7 +102,15 @@ pub fn color_wheel(ui: &mut Ui, hsv: &mut Hsv, size: f32) -> Response {
         WidgetInfo::labeled(
             WidgetType::Other,
             ui.is_enabled(),
-            format!("Color wheel, hue {:.0}°, saturation {:.0}%, value {:.0}%, #{:02X}{:02X}{:02X}", hsv.h * 360.0, hsv.s * 100.0, hsv.v * 100.0, col.r(), col.g(), col.b()),
+            format!(
+                "Color wheel, hue {:.0}°, saturation {:.0}%, value {:.0}%, #{:02X}{:02X}{:02X}",
+                hsv.h * 360.0,
+                hsv.s * 100.0,
+                hsv.v * 100.0,
+                col.r(),
+                col.g(),
+                col.b()
+            ),
         )
     });
 
@@ -102,9 +122,22 @@ pub fn color_wheel(ui: &mut Ui, hsv: &mut Hsv, size: f32) -> Response {
             let t = i as f32 / n as f32;
             let a = t * TAU;
             let dir = vec2(a.cos(), a.sin());
-            let hue = Hsv { h: t, s: 1.0, v: 1.0 }.to_color32();
-            mesh.vertices.push(Vertex { pos: c + dir * inner, uv: egui::epaint::WHITE_UV, color: hue });
-            mesh.vertices.push(Vertex { pos: c + dir * outer, uv: egui::epaint::WHITE_UV, color: hue });
+            let hue = Hsv {
+                h: t,
+                s: 1.0,
+                v: 1.0,
+            }
+            .to_color32();
+            mesh.vertices.push(Vertex {
+                pos: c + dir * inner,
+                uv: egui::epaint::WHITE_UV,
+                color: hue,
+            });
+            mesh.vertices.push(Vertex {
+                pos: c + dir * outer,
+                uv: egui::epaint::WHITE_UV,
+                color: hue,
+            });
             if i < n {
                 let b = (2 * i) as u32;
                 mesh.add_triangle(b, b + 1, b + 2);
@@ -117,8 +150,15 @@ pub fn color_wheel(ui: &mut Ui, hsv: &mut Hsv, size: f32) -> Response {
         for y in 0..=g {
             for x in 0..=g {
                 let (s, v) = (x as f32 / g as f32, 1.0 - y as f32 / g as f32);
-                let pos = pos2(square.left() + s * square.width(), square.top() + (1.0 - v) * square.height());
-                mesh.vertices.push(Vertex { pos, uv: egui::epaint::WHITE_UV, color: Hsv { h: hsv.h, s, v }.to_color32() });
+                let pos = pos2(
+                    square.left() + s * square.width(),
+                    square.top() + (1.0 - v) * square.height(),
+                );
+                mesh.vertices.push(Vertex {
+                    pos,
+                    uv: egui::epaint::WHITE_UV,
+                    color: Hsv { h: hsv.h, s, v }.to_color32(),
+                });
             }
         }
         for y in 0..g {
@@ -129,15 +169,25 @@ pub fn color_wheel(ui: &mut Ui, hsv: &mut Hsv, size: f32) -> Response {
             }
         }
         ui.painter().add(Shape::mesh(mesh));
-        ui.painter().rect_stroke(square, 0, Stroke::new(1.0, p.border), egui::StrokeKind::Outside);
+        ui.painter().rect_stroke(
+            square,
+            0,
+            Stroke::new(1.0, p.border),
+            egui::StrokeKind::Outside,
+        );
 
         // Markers: dual rings so they read on any color.
         let a = hsv.h * TAU;
         let hue_pos: Pos2 = c + vec2(a.cos(), a.sin()) * (inner + ring / 2.0);
-        let sv_pos = pos2(square.left() + hsv.s * square.width(), square.top() + (1.0 - hsv.v) * square.height());
+        let sv_pos = pos2(
+            square.left() + hsv.s * square.width(),
+            square.top() + (1.0 - hsv.v) * square.height(),
+        );
         for m in [hue_pos, sv_pos] {
-            ui.painter().circle_stroke(m, 5.0, Stroke::new(3.0, Color32::from_black_alpha(160)));
-            ui.painter().circle_stroke(m, 5.0, Stroke::new(1.5, Color32::WHITE));
+            ui.painter()
+                .circle_stroke(m, 5.0, Stroke::new(3.0, Color32::from_black_alpha(160)));
+            ui.painter()
+                .circle_stroke(m, 5.0, Stroke::new(1.5, Color32::WHITE));
         }
         focus_ring(ui, &resp, rect, tokens::radius::MD);
     }

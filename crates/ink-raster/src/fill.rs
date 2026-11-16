@@ -9,7 +9,7 @@
 //! Every pass is O(pixels): separable distance dilation and a scanline flood fill, with rayon
 //! over rows. Masks are one byte per pixel.
 
-use ink_core::tile::{TileKey, TILE};
+use ink_core::tile::{TILE, TileKey};
 use ink_core::{Document, LayerId, Rgba, UndoEntry};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -38,7 +38,12 @@ pub struct FillOptions {
 
 impl Default for FillOptions {
     fn default() -> Self {
-        Self { refer: Refer::References, tolerance: 24, gap: 0, expand: 1 }
+        Self {
+            refer: Refer::References,
+            tolerance: 24,
+            gap: 0,
+            expand: 1,
+        }
     }
 }
 
@@ -56,7 +61,11 @@ fn reference_layers(doc: &Document, target: LayerId, refer: Refer) -> Vec<&ink_c
 }
 
 #[inline]
-fn reference_px(layers: &[&ink_core::Layer], tiles: &[Option<&Arc<ink_core::Tile>>], i: usize) -> Rgba {
+fn reference_px(
+    layers: &[&ink_core::Layer],
+    tiles: &[Option<&Arc<ink_core::Tile>>],
+    i: usize,
+) -> Rgba {
     let mut c = Rgba::TRANSPARENT;
     for (l, t) in layers.iter().zip(tiles) {
         if let Some(t) = t {
@@ -76,27 +85,30 @@ fn barrier_mask(doc: &Document, layers: &[&ink_core::Layer], seed: Rgba, tol: u8
     let tw = w.div_ceil(TILE);
     let empty_blocked = (Rgba::TRANSPARENT.distance(seed) > tol) as u8;
     let mut mask = vec![0u8; w * h];
-    mask.par_chunks_mut(w * TILE).enumerate().for_each(|(ty, band)| {
-        let rows = band.len() / w;
-        for tx in 0..tw {
-            let key = (tx as i32, ty as i32);
-            let tiles: Vec<Option<&Arc<ink_core::Tile>>> = layers.iter().map(|l| l.raster.tile(key)).collect();
-            let x0 = tx * TILE;
-            let x1 = (x0 + TILE).min(w);
-            if tiles.iter().all(Option::is_none) {
+    mask.par_chunks_mut(w * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            let rows = band.len() / w;
+            for tx in 0..tw {
+                let key = (tx as i32, ty as i32);
+                let tiles: Vec<Option<&Arc<ink_core::Tile>>> =
+                    layers.iter().map(|l| l.raster.tile(key)).collect();
+                let x0 = tx * TILE;
+                let x1 = (x0 + TILE).min(w);
+                if tiles.iter().all(Option::is_none) {
+                    for y in 0..rows {
+                        band[y * w + x0..y * w + x1].fill(empty_blocked);
+                    }
+                    continue;
+                }
                 for y in 0..rows {
-                    band[y * w + x0..y * w + x1].fill(empty_blocked);
-                }
-                continue;
-            }
-            for y in 0..rows {
-                for x in x0..x1 {
-                    let c = reference_px(layers, &tiles, y * TILE + (x - x0));
-                    band[y * w + x] = (c.distance(seed) > tol) as u8;
+                    for x in x0..x1 {
+                        let c = reference_px(layers, &tiles, y * TILE + (x - x0));
+                        band[y * w + x] = (c.distance(seed) > tol) as u8;
+                    }
                 }
             }
-        }
-    });
+        });
     mask
 }
 
@@ -125,33 +137,39 @@ pub fn dilate(mask: &mut [u8], w: usize, h: usize, r: u32) {
     let src = mask.to_vec();
     let r = r as usize;
     let band_rows = 64;
-    mask.par_chunks_mut(w * band_rows).enumerate().for_each(|(b, out)| {
-        let y0 = b * band_rows;
-        let rows = out.len() / w;
-        let mut count = vec![0u16; w];
-        let add = |count: &mut [u16], y: usize, sign: bool| {
-            let row = &src[y * w..(y + 1) * w];
-            for (c, v) in count.iter_mut().zip(row) {
-                if sign { *c += *v as u16 } else { *c -= *v as u16 }
+    mask.par_chunks_mut(w * band_rows)
+        .enumerate()
+        .for_each(|(b, out)| {
+            let y0 = b * band_rows;
+            let rows = out.len() / w;
+            let mut count = vec![0u16; w];
+            let add = |count: &mut [u16], y: usize, sign: bool| {
+                let row = &src[y * w..(y + 1) * w];
+                for (c, v) in count.iter_mut().zip(row) {
+                    if sign {
+                        *c += *v as u16
+                    } else {
+                        *c -= *v as u16
+                    }
+                }
+            };
+            for y in y0.saturating_sub(r)..(y0 + r + 1).min(h) {
+                add(&mut count, y, true);
             }
-        };
-        for y in y0.saturating_sub(r)..(y0 + r + 1).min(h) {
-            add(&mut count, y, true);
-        }
-        for ry in 0..rows {
-            let y = y0 + ry;
-            for (o, c) in out[ry * w..(ry + 1) * w].iter_mut().zip(&count) {
-                *o = (*c > 0) as u8;
+            for ry in 0..rows {
+                let y = y0 + ry;
+                for (o, c) in out[ry * w..(ry + 1) * w].iter_mut().zip(&count) {
+                    *o = (*c > 0) as u8;
+                }
+                // Slide: drop row y - r, add row y + r + 1.
+                if y >= r {
+                    add(&mut count, y - r, false);
+                }
+                if y + r + 1 < h {
+                    add(&mut count, y + r + 1, true);
+                }
             }
-            // Slide: drop row y - r, add row y + r + 1.
-            if y >= r {
-                add(&mut count, y - r, false);
-            }
-            if y + r + 1 < h {
-                add(&mut count, y + r + 1, true);
-            }
-        }
-    });
+        });
 }
 
 /// 4-connected scanline flood fill over pixels where `blocked` is 0. Returns the region mask.
@@ -208,7 +226,10 @@ fn grow_into(region: &mut [u8], blocked: &[u8], w: usize, h: usize, r: u32) {
                     return None;
                 }
                 let i = y * w + x;
-                let edge = (x > 0 && open(i - 1, reg)) || (x + 1 < w && open(i + 1, reg)) || (y > 0 && open(i - w, reg)) || (y + 1 < h && open(i + w, reg));
+                let edge = (x > 0 && open(i - 1, reg))
+                    || (x + 1 < w && open(i + 1, reg))
+                    || (y > 0 && open(i - w, reg))
+                    || (y + 1 < h && open(i + w, reg));
                 edge.then_some(i)
             })
         })
@@ -217,7 +238,12 @@ fn grow_into(region: &mut [u8], blocked: &[u8], w: usize, h: usize, r: u32) {
         let mut next = Vec::new();
         for &i in &frontier {
             let (x, y) = (i % w, i / w);
-            for (ok, j) in [(x > 0, i.wrapping_sub(1)), (x + 1 < w, i + 1), (y > 0, i.wrapping_sub(w)), (y + 1 < h, i + w)] {
+            for (ok, j) in [
+                (x > 0, i.wrapping_sub(1)),
+                (x + 1 < w, i + 1),
+                (y > 0, i.wrapping_sub(w)),
+                (y + 1 < h, i + w),
+            ] {
                 if ok && open(j, region) {
                     region[j] = 1;
                     next.push(j);
@@ -232,14 +258,21 @@ fn grow_into(region: &mut [u8], blocked: &[u8], w: usize, h: usize, r: u32) {
 }
 
 /// Compute the fill region for a click at (x, y).
-pub fn fill_region(doc: &Document, target: LayerId, x: i32, y: i32, o: &FillOptions) -> Option<(usize, usize, Vec<u8>)> {
+pub fn fill_region(
+    doc: &Document,
+    target: LayerId,
+    x: i32,
+    y: i32,
+    o: &FillOptions,
+) -> Option<(usize, usize, Vec<u8>)> {
     let (w, h) = (doc.width as usize, doc.height as usize);
     if x < 0 || y < 0 || x as usize >= w || y as usize >= h {
         return None;
     }
     let layers = reference_layers(doc, target, o.refer);
     let (k, lx, ly) = ink_core::tile::split(x, y);
-    let seed_tiles: Vec<Option<&Arc<ink_core::Tile>>> = layers.iter().map(|l| l.raster.tile(k)).collect();
+    let seed_tiles: Vec<Option<&Arc<ink_core::Tile>>> =
+        layers.iter().map(|l| l.raster.tile(k)).collect();
     let seed = reference_px(&layers, &seed_tiles, ly * TILE + lx);
     let barrier = barrier_mask(doc, &layers, seed, o.tolerance);
     let (sx, sy) = (x as usize, y as usize);
@@ -268,8 +301,153 @@ pub fn fill_region(doc: &Document, target: LayerId, x: i32, y: i32, o: &FillOpti
     Some((w, h, region))
 }
 
+/// Fill every closed area of the line art with its own color (flatting in one click).
+/// Areas touching the canvas edge (the background) and specks smaller than `min_area` px are
+/// skipped. Colors come from `palette(i)`. Returns the undo entry and the number of areas filled.
+pub fn fill_all_regions(
+    doc: &mut Document,
+    target: LayerId,
+    o: &FillOptions,
+    min_area: usize,
+    palette: impl Fn(usize) -> Rgba,
+) -> Option<(UndoEntry, usize)> {
+    let (w, h) = (doc.width as usize, doc.height as usize);
+    let layers = reference_layers(doc, target, o.refer);
+    // Barrier = anything not (nearly) transparent on the reference layers.
+    let barrier_orig = barrier_mask(doc, &layers, Rgba::TRANSPARENT, o.tolerance);
+    let mut closed = barrier_orig.clone();
+    dilate(&mut closed, w, h, o.gap);
+    // Connected components of the free pixels (scanline flood, labels written in place).
+    let mut label = vec![0u32; w * h];
+    let mut sizes: Vec<usize> = vec![0];
+    let mut touches_edge: Vec<bool> = vec![false];
+    let mut stack = Vec::new();
+    for start in 0..w * h {
+        if closed[start] != 0 || label[start] != 0 {
+            continue;
+        }
+        let id = sizes.len() as u32;
+        sizes.push(0);
+        touches_edge.push(false);
+        stack.push(start);
+        while let Some(i) = stack.pop() {
+            if label[i] != 0 || closed[i] != 0 {
+                continue;
+            }
+            let (x, y) = (i % w, i / w);
+            let mut l = x;
+            while l > 0 && closed[y * w + l - 1] == 0 && label[y * w + l - 1] == 0 {
+                l -= 1;
+            }
+            let mut r = x;
+            while r + 1 < w && closed[y * w + r + 1] == 0 && label[y * w + r + 1] == 0 {
+                r += 1;
+            }
+            for xx in l..=r {
+                label[y * w + xx] = id;
+            }
+            sizes[id as usize] += r - l + 1;
+            if l == 0 || r == w - 1 || y == 0 || y == h - 1 {
+                touches_edge[id as usize] = true;
+            }
+            for ny in [y.wrapping_sub(1), y + 1] {
+                if ny >= h {
+                    continue;
+                }
+                let mut xx = l;
+                while xx <= r {
+                    let j = ny * w + xx;
+                    if closed[j] == 0 && label[j] == 0 {
+                        stack.push(j);
+                        while xx <= r && closed[ny * w + xx] == 0 {
+                            xx += 1;
+                        }
+                    }
+                    xx += 1;
+                }
+            }
+        }
+    }
+    drop(closed);
+    // Grow every region back by the gap (and the expand margin) into unlabeled free pixels,
+    // so colors reach the line art and slip under it.
+    let grow = o.gap + 1 + o.expand;
+    for _ in 0..grow {
+        let prev = label.clone();
+        label.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
+            for x in 0..w {
+                if row[x] != 0 {
+                    continue;
+                }
+                let i = y * w + x;
+                let n = [
+                    if x > 0 { prev[i - 1] } else { 0 },
+                    if x + 1 < w { prev[i + 1] } else { 0 },
+                    if y > 0 { prev[i - w] } else { 0 },
+                    if y + 1 < h { prev[i + w] } else { 0 },
+                ];
+                if let Some(&v) = n.iter().find(|v| **v != 0) {
+                    row[x] = v;
+                }
+            }
+        });
+    }
+    let keep: Vec<bool> = (0..sizes.len())
+        .map(|i| i != 0 && !touches_edge[i] && sizes[i] >= min_area)
+        .collect();
+    let mut colors = vec![Rgba::TRANSPARENT; sizes.len()];
+    let mut n = 0;
+    for (i, k) in keep.iter().enumerate() {
+        if *k {
+            colors[i] = palette(n);
+            n += 1;
+        }
+    }
+    if n == 0 {
+        return None;
+    }
+    // Paint all regions at once: one region mask per color would be wasteful, so write directly.
+    let layer = doc.layer_mut(target)?;
+    if layer.props.locked {
+        return None;
+    }
+    let mut base: HashMap<TileKey, Option<Arc<ink_core::Tile>>> = HashMap::new();
+    for y in 0..h {
+        for x in 0..w {
+            let l = label[y * w + x] as usize;
+            if l == 0 || !keep[l] {
+                continue;
+            }
+            let (k, lx, ly) = ink_core::tile::split(x as i32, y as i32);
+            base.entry(k)
+                .or_insert_with(|| layer.raster.tile(k).cloned());
+            let t = layer.raster.tile_mut(k);
+            let b = t.get(lx, ly);
+            t.set(lx, ly, colors[l].over(b));
+        }
+    }
+    let keys: Vec<TileKey> = base.keys().copied().collect();
+    doc.mark_dirty(keys);
+    Some((
+        UndoEntry::Tiles {
+            label: "Fill all areas".into(),
+            layer: target,
+            tiles: base.into_iter().collect(),
+        },
+        n,
+    ))
+}
+
 /// Paint `region` onto `target` with `color` (Normal). Returns the undo entry.
-pub fn apply_region(doc: &mut Document, target: LayerId, w: usize, h: usize, region: &[u8], color: Rgba, label: &str) -> Option<UndoEntry> {
+pub fn apply_region(
+    doc: &mut Document,
+    target: LayerId,
+    w: usize,
+    h: usize,
+    region: &[u8],
+    color: Rgba,
+    label: &str,
+) -> Option<UndoEntry> {
     let layer = doc.layer_mut(target)?;
     if layer.props.locked {
         return None;
@@ -279,7 +457,11 @@ pub fn apply_region(doc: &mut Document, target: LayerId, w: usize, h: usize, reg
     let (tw, th) = (w.div_ceil(TILE), h.div_ceil(TILE));
     for ty in 0..th {
         for tx in 0..tw {
-            let any = (ty * TILE..((ty + 1) * TILE).min(h)).any(|y| region[y * w + tx * TILE..y * w + ((tx + 1) * TILE).min(w)].iter().any(|v| *v != 0));
+            let any = (ty * TILE..((ty + 1) * TILE).min(h)).any(|y| {
+                region[y * w + tx * TILE..y * w + ((tx + 1) * TILE).min(w)]
+                    .iter()
+                    .any(|v| *v != 0)
+            });
             if !any {
                 continue;
             }
@@ -300,18 +482,33 @@ pub fn apply_region(doc: &mut Document, target: LayerId, w: usize, h: usize, reg
                         continue;
                     }
                     let b = tile.px[ly * TILE + lx];
-                    tile.px[ly * TILE + lx] = if lock_alpha { color.scale(b.a()) } else { color.over(b) };
+                    tile.px[ly * TILE + lx] = if lock_alpha {
+                        color.scale(b.a())
+                    } else {
+                        color.over(b)
+                    };
                 }
             }
         }
     }
     let keys: Vec<TileKey> = base.keys().copied().collect();
     doc.mark_dirty(keys);
-    Some(UndoEntry::Tiles { label: label.into(), layer: target, tiles: base.into_iter().collect() })
+    Some(UndoEntry::Tiles {
+        label: label.into(),
+        layer: target,
+        tiles: base.into_iter().collect(),
+    })
 }
 
 /// Region + paint in one call.
-pub fn fill(doc: &mut Document, target: LayerId, x: i32, y: i32, color: Rgba, o: &FillOptions) -> Option<UndoEntry> {
+pub fn fill(
+    doc: &mut Document,
+    target: LayerId,
+    x: i32,
+    y: i32,
+    color: Rgba,
+    o: &FillOptions,
+) -> Option<UndoEntry> {
     let (w, h, region) = fill_region(doc, target, x, y, o)?;
     apply_region(doc, target, w, h, &region, color, "Fill")
 }
@@ -345,24 +542,70 @@ mod tests {
     fn fills_inside_closed_shape_on_another_layer() {
         let (mut d, flats, lines) = lineart(0);
         let red = Rgba::from_straight(220, 40, 40, 255);
-        fill(&mut d, flats, 150, 150, red, &FillOptions { expand: 0, ..Default::default() }).unwrap();
+        fill(
+            &mut d,
+            flats,
+            150,
+            150,
+            red,
+            &FillOptions {
+                expand: 0,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let f = &d.layer(flats).unwrap().raster;
         assert_eq!(f.get(150, 150), red);
         assert_eq!(f.get(10, 10), Rgba::TRANSPARENT);
-        assert_eq!(d.layer(lines).unwrap().raster.get(150, 150), Rgba::TRANSPARENT);
+        assert_eq!(
+            d.layer(lines).unwrap().raster.get(150, 150),
+            Rgba::TRANSPARENT
+        );
     }
 
     #[test]
     fn gap_closing_stops_leaks() {
         let red = Rgba::from_straight(220, 40, 40, 255);
         let (mut d, flats, _) = lineart(4);
-        fill(&mut d, flats, 150, 150, red, &FillOptions { gap: 0, expand: 0, ..Default::default() }).unwrap();
-        assert_eq!(d.layer(flats).unwrap().raster.get(10, 10), red, "without gap closing it leaks");
+        fill(
+            &mut d,
+            flats,
+            150,
+            150,
+            red,
+            &FillOptions {
+                gap: 0,
+                expand: 0,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            d.layer(flats).unwrap().raster.get(10, 10),
+            red,
+            "without gap closing it leaks"
+        );
 
         let (mut d, flats, _) = lineart(4);
-        fill(&mut d, flats, 150, 150, red, &FillOptions { gap: 3, expand: 0, ..Default::default() }).unwrap();
+        fill(
+            &mut d,
+            flats,
+            150,
+            150,
+            red,
+            &FillOptions {
+                gap: 3,
+                expand: 0,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let f = &d.layer(flats).unwrap().raster;
-        assert_eq!(f.get(10, 10), Rgba::TRANSPARENT, "gap closing keeps it inside");
+        assert_eq!(
+            f.get(10, 10),
+            Rgba::TRANSPARENT,
+            "gap closing keeps it inside"
+        );
         assert_eq!(f.get(150, 150), red);
         assert_eq!(f.get(53, 53), red, "region grows back into corners");
         assert_eq!(f.get(246, 200), red, "region grows back to the line");
@@ -388,7 +631,12 @@ mod tests {
                     for dy in -r..=r {
                         for dx in -r..=r {
                             let (xx, yy) = (x + dx, y + dy);
-                            if xx >= 0 && yy >= 0 && xx < w as i64 && yy < h as i64 && mask[yy as usize * w + xx as usize] != 0 {
+                            if xx >= 0
+                                && yy >= 0
+                                && xx < w as i64
+                                && yy < h as i64
+                                && mask[yy as usize * w + xx as usize] != 0
+                            {
                                 want = 1;
                             }
                         }
@@ -400,10 +648,62 @@ mod tests {
     }
 
     #[test]
+    fn fill_all_regions_colors_each_closed_area() {
+        // Two closed squares side by side on the line layer.
+        let mut d = Document::new(300, 200, 600);
+        let mut lines = Layer::new("lines");
+        lines.props.reference = true;
+        for (x0, x1) in [(20, 130), (160, 280)] {
+            for i in x0..=x1 {
+                lines.raster.set(i, 30, Rgba::BLACK);
+                lines.raster.set(i, 170, Rgba::BLACK);
+            }
+            for j in 30..=170 {
+                lines.raster.set(x0, j, Rgba::BLACK);
+                lines.raster.set(x1, j, Rgba::BLACK);
+            }
+        }
+        let flats = d.push_layer(Layer::new("flats"));
+        d.push_layer(lines);
+        let cols = [
+            Rgba::from_straight(255, 0, 0, 255),
+            Rgba::from_straight(0, 0, 255, 255),
+        ];
+        let (_, n) = fill_all_regions(
+            &mut d,
+            flats,
+            &FillOptions {
+                gap: 0,
+                expand: 0,
+                ..Default::default()
+            },
+            20,
+            |i| cols[i % 2],
+        )
+        .unwrap();
+        assert_eq!(n, 2, "background excluded");
+        let f = &d.layer(flats).unwrap().raster;
+        assert_ne!(f.get(70, 100), f.get(220, 100), "different colors");
+        assert!(f.get(70, 100).a() == 255 && f.get(220, 100).a() == 255);
+        assert_eq!(f.get(5, 5), Rgba::TRANSPARENT, "background untouched");
+    }
+
+    #[test]
     fn expand_goes_under_lines() {
         let red = Rgba::from_straight(220, 40, 40, 255);
         let (mut d, flats, _) = lineart(0);
-        fill(&mut d, flats, 150, 150, red, &FillOptions { expand: 2, ..Default::default() }).unwrap();
+        fill(
+            &mut d,
+            flats,
+            150,
+            150,
+            red,
+            &FillOptions {
+                expand: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let f = &d.layer(flats).unwrap().raster;
         assert_eq!(f.get(51, 150), red);
         assert_eq!(f.get(47, 150), Rgba::TRANSPARENT);

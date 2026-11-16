@@ -1,5 +1,7 @@
 /// Premultiplied RGBA, 8 bits per channel (sRGB-encoded, blended in sRGB like most paint apps).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 #[repr(C)]
 pub struct Rgba(pub [u8; 4]);
 

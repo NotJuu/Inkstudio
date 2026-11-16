@@ -5,7 +5,7 @@
 //! table built from the dot shape's own value distribution makes a 20% tone cover 20% of the
 //! paper for every shape. Output can be 1-bit (print) or anti-aliased (screen preview).
 
-use ink_core::tile::{TileKey, TILE, TILE_PX};
+use ink_core::tile::{TILE, TILE_PX, TileKey};
 use ink_core::{Document, LayerId, Rgba, Tile, UndoEntry};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -33,7 +33,13 @@ pub struct ToneSettings {
 
 impl Default for ToneSettings {
     fn default() -> Self {
-        Self { lpi: 60.0, density: 0.2, angle_deg: 45.0, shape: DotShape::Circle, color: Rgba::BLACK }
+        Self {
+            lpi: 60.0,
+            density: 0.2,
+            angle_deg: 45.0,
+            shape: DotShape::Circle,
+            color: Rgba::BLACK,
+        }
     }
 }
 
@@ -48,8 +54,10 @@ fn spot(shape: DotShape, u: f32, v: f32, cell_x: i32, cell_y: i32, sub: (f32, f3
         DotShape::Cross => 1.0 - u.abs().min(v.abs()),
         DotShape::Noise => {
             // Stable white-noise threshold per sub-pixel position.
-            let mut h = (cell_x as u32).wrapping_mul(0x9E37_79B1) ^ (cell_y as u32).wrapping_mul(0x85EB_CA77);
-            h ^= ((sub.0 * 64.0) as u32).wrapping_mul(0xC2B2_AE3D) ^ ((sub.1 * 64.0) as u32).wrapping_mul(0x27D4_EB2F);
+            let mut h = (cell_x as u32).wrapping_mul(0x9E37_79B1)
+                ^ (cell_y as u32).wrapping_mul(0x85EB_CA77);
+            h ^= ((sub.0 * 64.0) as u32).wrapping_mul(0xC2B2_AE3D)
+                ^ ((sub.1 * 64.0) as u32).wrapping_mul(0x27D4_EB2F);
             h ^= h >> 15;
             h = h.wrapping_mul(0x2C1B_3C6D);
             h ^= h >> 12;
@@ -91,15 +99,37 @@ impl Tone {
         } else {
             vals[((1.0 - d) * (vals.len() - 1) as f32) as usize]
         };
-        Self { s, cell_px, cos, sin, threshold }
+        Self {
+            s,
+            cell_px,
+            cos,
+            sin,
+            threshold,
+        }
     }
 
     /// Coverage 0..=1 at pixel center (x, y). `aa` = 4×4 supersampling for screen preview.
     #[inline]
     pub fn coverage(&self, x: i32, y: i32, aa: bool) -> f32 {
         let samples: &[(f32, f32)] = if aa {
-            &[(0.125, 0.125), (0.375, 0.125), (0.625, 0.125), (0.875, 0.125), (0.125, 0.375), (0.375, 0.375), (0.625, 0.375), (0.875, 0.375),
-              (0.125, 0.625), (0.375, 0.625), (0.625, 0.625), (0.875, 0.625), (0.125, 0.875), (0.375, 0.875), (0.625, 0.875), (0.875, 0.875)]
+            &[
+                (0.125, 0.125),
+                (0.375, 0.125),
+                (0.625, 0.125),
+                (0.875, 0.125),
+                (0.125, 0.375),
+                (0.375, 0.375),
+                (0.625, 0.375),
+                (0.875, 0.375),
+                (0.125, 0.625),
+                (0.375, 0.625),
+                (0.625, 0.625),
+                (0.875, 0.625),
+                (0.125, 0.875),
+                (0.375, 0.875),
+                (0.625, 0.875),
+                (0.875, 0.875),
+            ]
         } else {
             &[(0.5, 0.5)]
         };
@@ -127,7 +157,13 @@ impl Tone {
 
 /// Fill `region` (one byte per canvas pixel, non-zero = toned) on `target` with a tone.
 /// `one_bit` = print-exact pixels; otherwise anti-aliased. Rows of tiles render in parallel.
-pub fn apply_tone(doc: &mut Document, target: LayerId, region: &[u8], s: ToneSettings, one_bit: bool) -> Option<UndoEntry> {
+pub fn apply_tone(
+    doc: &mut Document,
+    target: LayerId,
+    region: &[u8],
+    s: ToneSettings,
+    one_bit: bool,
+) -> Option<UndoEntry> {
     use rayon::prelude::*;
     let (w, h) = (doc.width as usize, doc.height as usize);
     let tone = Tone::new(s, doc.dpi as f32);
@@ -135,8 +171,19 @@ pub fn apply_tone(doc: &mut Document, target: LayerId, region: &[u8], s: ToneSet
     let layer = doc.layer(target)?;
     let jobs: Vec<(TileKey, Option<Arc<Tile>>)> = (0..th)
         .flat_map(|ty| (0..tw).map(move |tx| (tx, ty)))
-        .filter(|&(tx, ty)| (ty * TILE..((ty + 1) * TILE).min(h)).any(|y| region[y * w + tx * TILE..y * w + ((tx + 1) * TILE).min(w)].iter().any(|v| *v != 0)))
-        .map(|(tx, ty)| ((tx as i32, ty as i32), layer.raster.tile((tx as i32, ty as i32)).cloned()))
+        .filter(|&(tx, ty)| {
+            (ty * TILE..((ty + 1) * TILE).min(h)).any(|y| {
+                region[y * w + tx * TILE..y * w + ((tx + 1) * TILE).min(w)]
+                    .iter()
+                    .any(|v| *v != 0)
+            })
+        })
+        .map(|(tx, ty)| {
+            (
+                (tx as i32, ty as i32),
+                layer.raster.tile((tx as i32, ty as i32)).cloned(),
+            )
+        })
         .collect();
     let rendered: Vec<(TileKey, Tile)> = jobs
         .par_iter()
@@ -169,7 +216,11 @@ pub fn apply_tone(doc: &mut Document, target: LayerId, region: &[u8], s: ToneSet
     let keys: Vec<TileKey> = jobs.iter().map(|(k, _)| *k).collect();
     doc.mark_dirty(keys);
     let base: HashMap<TileKey, Option<Arc<Tile>>> = jobs.into_iter().collect();
-    Some(UndoEntry::Tiles { label: "Tone".into(), layer: target, tiles: base.into_iter().collect() })
+    Some(UndoEntry::Tiles {
+        label: "Tone".into(),
+        layer: target,
+        tiles: base.into_iter().collect(),
+    })
 }
 
 /// Measured ink coverage of a tone over a square patch (for tests and the tone dialog preview).
@@ -193,11 +244,25 @@ mod tests {
 
     #[test]
     fn density_is_calibrated_for_every_shape() {
-        for shape in [DotShape::Circle, DotShape::Square, DotShape::Diamond, DotShape::Line, DotShape::Cross, DotShape::Noise] {
+        for shape in [
+            DotShape::Circle,
+            DotShape::Square,
+            DotShape::Diamond,
+            DotShape::Line,
+            DotShape::Cross,
+            DotShape::Noise,
+        ] {
             for density in [0.1, 0.2, 0.5, 0.8] {
-                let s = ToneSettings { density, shape, ..Default::default() };
+                let s = ToneSettings {
+                    density,
+                    shape,
+                    ..Default::default()
+                };
                 let m = measured_density(s, 600.0, 400);
-                assert!((m - density).abs() < 0.03, "{shape:?} {density}: measured {m}");
+                assert!(
+                    (m - density).abs() < 0.03,
+                    "{shape:?} {density}: measured {m}"
+                );
             }
         }
     }
@@ -205,7 +270,12 @@ mod tests {
     #[test]
     fn dot_pitch_matches_lpi_at_dpi() {
         // 60 lpi at 600 dpi, 0°: a dot every 10 px along x.
-        let s = ToneSettings { lpi: 60.0, density: 0.3, angle_deg: 0.0, ..Default::default() };
+        let s = ToneSettings {
+            lpi: 60.0,
+            density: 0.3,
+            angle_deg: 0.0,
+            ..Default::default()
+        };
         let t = Tone::new(s, 600.0);
         let row: Vec<bool> = (0..100).map(|x| t.coverage(x, 5, false) > 0.5).collect();
         let starts = (1..100).filter(|&x| row[x] && !row[x - 1]).count();

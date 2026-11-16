@@ -1,16 +1,23 @@
 //! Undo history. An entry stores the *previous* `Arc<Tile>` of every tile an action touched,
 //! so recording a stroke costs one pointer per tile, not a pixel copy.
 
-use crate::document::{Document, LayerId};
-use crate::tile::{Tile, TileKey, TILE_PX};
 use crate::Layer;
+use crate::document::{Document, LayerId};
+use crate::tile::{TILE_PX, Tile, TileKey};
 use std::sync::Arc;
 
 pub enum UndoEntry {
     /// Tiles of one layer before the action. Applying swaps them with the current tiles.
-    Tiles { label: String, layer: LayerId, tiles: Vec<(TileKey, Option<Arc<Tile>>)> },
+    Tiles {
+        label: String,
+        layer: LayerId,
+        tiles: Vec<(TileKey, Option<Arc<Tile>>)>,
+    },
     /// Whole-layer structural change (add, delete, reorder, property edit): the layer list before.
-    Layers { label: String, layers: Vec<(LayerId, Layer)> },
+    Layers {
+        label: String,
+        layers: Vec<(LayerId, Layer)>,
+    },
 }
 
 impl UndoEntry {
@@ -23,7 +30,9 @@ impl UndoEntry {
     /// Approximate memory held only by this entry (tiles shared with the document cost nothing).
     fn bytes(&self) -> usize {
         match self {
-            UndoEntry::Tiles { tiles, .. } => tiles.iter().filter(|(_, t)| t.is_some()).count() * TILE_PX * 4,
+            UndoEntry::Tiles { tiles, .. } => {
+                tiles.iter().filter(|(_, t)| t.is_some()).count() * TILE_PX * 4
+            }
             UndoEntry::Layers { layers, .. } => layers.len() * 1024,
         }
     }
@@ -31,9 +40,17 @@ impl UndoEntry {
     /// Apply to `doc`, returning the inverse entry (for redo / undo symmetry).
     fn apply(self, doc: &mut Document) -> UndoEntry {
         match self {
-            UndoEntry::Tiles { label, layer, tiles } => {
+            UndoEntry::Tiles {
+                label,
+                layer,
+                tiles,
+            } => {
                 let Some(l) = doc.layer_mut(layer) else {
-                    return UndoEntry::Tiles { label, layer, tiles: Vec::new() };
+                    return UndoEntry::Tiles {
+                        label,
+                        layer,
+                        tiles: Vec::new(),
+                    };
                 };
                 let inverse = tiles
                     .into_iter()
@@ -44,7 +61,11 @@ impl UndoEntry {
                     })
                     .collect();
                 doc.mark_dirty_layer(layer);
-                UndoEntry::Tiles { label, layer, tiles: inverse }
+                UndoEntry::Tiles {
+                    label,
+                    layer,
+                    tiles: inverse,
+                }
             }
             UndoEntry::Layers { label, layers } => {
                 let cur = doc.replace_layers(layers);
@@ -63,7 +84,12 @@ pub struct History {
 
 impl Default for History {
     fn default() -> Self {
-        Self { undo: Vec::new(), redo: Vec::new(), max_steps: 200, max_bytes: 2 << 30 }
+        Self {
+            undo: Vec::new(),
+            redo: Vec::new(),
+            max_steps: 200,
+            max_bytes: 2 << 30,
+        }
     }
 }
 

@@ -5,8 +5,8 @@
 //! `tr("…")` used in the UI has a German entry.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Lang {
@@ -45,7 +45,11 @@ pub fn set_lang(l: Lang) {
 }
 
 pub fn lang() -> Lang {
-    if LANG.load(Ordering::Relaxed) == 1 { Lang::De } else { Lang::En }
+    if LANG.load(Ordering::Relaxed) == 1 {
+        Lang::De
+    } else {
+        Lang::En
+    }
 }
 
 /// Language from the environment (LC_ALL, LC_MESSAGES, LANG, LANGUAGE), English otherwise.
@@ -110,10 +114,16 @@ const DE: &[(&str, &str)] = &[
     ("Simulate pressure for mouse", "Druck für Maus simulieren"),
     ("Add page after this", "Seite danach einfügen"),
     ("Delete this page", "Diese Seite löschen"),
-    ("Replace panels with template", "Panels durch Vorlage ersetzen"),
+    (
+        "Replace panels with template",
+        "Panels durch Vorlage ersetzen",
+    ),
     ("Play", "Abspielen"),
     ("Pause", "Pause"),
-    ("Create an Animation sheet to use the timeline.", "Erstelle ein Animations-Blatt, um die Timeline zu nutzen."),
+    (
+        "Create an Animation sheet to use the timeline.",
+        "Erstelle ein Animations-Blatt, um die Timeline zu nutzen.",
+    ),
     ("Reset layout", "Layout zurücksetzen"),
     ("Show palettes", "Paletten anzeigen"),
     // ---- panes ---------------------------------------------------------------------------------
@@ -158,13 +168,34 @@ const DE: &[(&str, &str)] = &[
     ("Gutter ↕", "Abstand ↕"),
     ("Vertical", "Vertikal"),
     ("Horizontal", "Horizontal"),
-    ("Click empty canvas to place · drag body / tail tip / corners", "Auf leere Leinwand klicken zum Platzieren · Körper / Schwanzspitze / Ecken ziehen"),
-    ("Drag to pan · scroll to zoom", "Ziehen zum Verschieben · scrollen zum Zoomen"),
-    ("Drag to rotate around the view center", "Ziehen, um um die Mitte zu drehen"),
-    ("Replaces the panels on this page (undoable).", "Ersetzt die Panels auf dieser Seite (rückgängig machbar)."),
-    ("Rectangle: drag on the page.\nDivide: drag a line across a panel.\nSelect + Delete removes a panel.", "Rechteck: auf der Seite ziehen.\nTeilen: eine Linie über ein Panel ziehen.\nAuswählen + Entf löscht ein Panel."),
-    ("Click inside line art. The color goes onto the selected layer; the shape is read from reference layers (Ink, Panels).", "In die Linienzeichnung klicken. Die Farbe landet auf der gewählten Ebene, die Form wird aus den Referenzebenen (Tusche, Panels) gelesen."),
-    ("Drag to move the view. Scroll to pan, Ctrl+scroll or pinch to zoom, R+drag to rotate.", "Ziehen verschiebt die Ansicht. Scrollen verschiebt, Strg+Scrollen oder Zwei-Finger-Zoom zoomt, R+Ziehen dreht."),
+    (
+        "Click empty canvas to place · drag body / tail tip / corners",
+        "Auf leere Leinwand klicken zum Platzieren · Körper / Schwanzspitze / Ecken ziehen",
+    ),
+    (
+        "Drag to pan · scroll to zoom",
+        "Ziehen zum Verschieben · scrollen zum Zoomen",
+    ),
+    (
+        "Drag to rotate around the view center",
+        "Ziehen, um um die Mitte zu drehen",
+    ),
+    (
+        "Replaces the panels on this page (undoable).",
+        "Ersetzt die Panels auf dieser Seite (rückgängig machbar).",
+    ),
+    (
+        "Rectangle: drag on the page.\nDivide: drag a line across a panel.\nSelect + Delete removes a panel.",
+        "Rechteck: auf der Seite ziehen.\nTeilen: eine Linie über ein Panel ziehen.\nAuswählen + Entf löscht ein Panel.",
+    ),
+    (
+        "Click inside line art. The color goes onto the selected layer; the shape is read from reference layers (Ink, Panels).",
+        "In die Linienzeichnung klicken. Die Farbe landet auf der gewählten Ebene, die Form wird aus den Referenzebenen (Tusche, Panels) gelesen.",
+    ),
+    (
+        "Drag to move the view. Scroll to pan, Ctrl+scroll or pinch to zoom, R+drag to rotate.",
+        "Ziehen verschiebt die Ansicht. Scrollen verschiebt, Strg+Scrollen oder Zwei-Finger-Zoom zoomt, R+Ziehen dreht.",
+    ),
     ("Size of new balloons", "Größe neuer Sprechblasen"),
     ("Pressure → size", "Druck → Größe"),
     ("Pressure → opacity", "Druck → Deckkraft"),
@@ -174,7 +205,10 @@ const DE: &[(&str, &str)] = &[
     // ---- balloons ------------------------------------------------------------------------------
     ("Text", "Text"),
     ("Type the dialogue…", "Dialog eingeben…"),
-    ("Click on the page to place a balloon, or click a balloon to edit it.", "Klicke auf die Seite, um eine Sprechblase zu setzen, oder klicke eine Blase an, um sie zu bearbeiten."),
+    (
+        "Click on the page to place a balloon, or click a balloon to edit it.",
+        "Klicke auf die Seite, um eine Sprechblase zu setzen, oder klicke eine Blase an, um sie zu bearbeiten.",
+    ),
     ("Font size", "Schriftgröße"),
     ("Tail", "Schwanz"),
     ("Pointed", "Spitz"),
@@ -184,8 +218,14 @@ const DE: &[(&str, &str)] = &[
     ("Fit balloon to text", "Blase an Text anpassen"),
     ("Bring to front", "Nach vorne"),
     ("Delete", "Löschen"),
-    ("No font found: text will not render.", "Keine Schrift gefunden: Text wird nicht dargestellt."),
-    ("Balloon placed. Type the text in the Text palette.", "Sprechblase gesetzt. Tippe den Text in der Text-Palette."),
+    (
+        "No font found: text will not render.",
+        "Keine Schrift gefunden: Text wird nicht dargestellt.",
+    ),
+    (
+        "Balloon placed. Type the text in the Text palette.",
+        "Sprechblase gesetzt. Tippe den Text in der Text-Palette.",
+    ),
     ("Speech", "Sprechen"),
     ("Rounded", "Abgerundet"),
     ("Box", "Kasten"),
@@ -235,14 +275,29 @@ const DE: &[(&str, &str)] = &[
     ("Flip", "Spiegeln"),
     ("Fit", "Einpassen"),
     ("Reset", "Zurücksetzen"),
-    ("Click or drag in the preview to move the view.", "In die Vorschau klicken oder ziehen, um die Ansicht zu verschieben."),
+    (
+        "Click or drag in the preview to move the view.",
+        "In die Vorschau klicken oder ziehen, um die Ansicht zu verschieben.",
+    ),
     // ---- pages / timeline -----------------------------------------------------------------------
     ("Add page", "Seite hinzufügen"),
-    ("right binding: page 1 is on the right", "rechte Bindung: Seite 1 ist rechts"),
+    (
+        "right binding: page 1 is on the right",
+        "rechte Bindung: Seite 1 ist rechts",
+    ),
     ("left binding", "linke Bindung"),
-    ("Page {n} · drag ← → to reorder", "Seite {n} · ← → ziehen zum Umsortieren"),
-    ("This sheet has one page. Create a multi-page book to manage pages.", "Dieses Blatt hat eine Seite. Erstelle ein mehrseitiges Buch, um Seiten zu verwalten."),
-    ("This sheet is not an animation.", "Dieses Blatt ist keine Animation."),
+    (
+        "Page {n} · drag ← → to reorder",
+        "Seite {n} · ← → ziehen zum Umsortieren",
+    ),
+    (
+        "This sheet has one page. Create a multi-page book to manage pages.",
+        "Dieses Blatt hat eine Seite. Erstelle ein mehrseitiges Buch, um Seiten zu verwalten.",
+    ),
+    (
+        "This sheet is not an animation.",
+        "Dieses Blatt ist keine Animation.",
+    ),
     ("First frame", "Erstes Bild"),
     ("Previous frame (,)", "Vorheriges Bild (,)"),
     ("Next frame (.)", "Nächstes Bild (.)"),
@@ -252,7 +307,10 @@ const DE: &[(&str, &str)] = &[
     (" frames", " Bilder"),
     ("New cel here", "Neues Cel hier"),
     ("Blank", "Leer"),
-    ("Show nothing from this frame on", "Ab diesem Bild nichts zeigen"),
+    (
+        "Show nothing from this frame on",
+        "Ab diesem Bild nichts zeigen",
+    ),
     ("Onion skin", "Zwiebelhaut"),
     ("Loop", "Schleife"),
     // ---- status / toasts ------------------------------------------------------------------------
@@ -271,33 +329,66 @@ const DE: &[(&str, &str)] = &[
     ("Save layout as…", "Layout speichern unter…"),
     ("Delete layout", "Layout löschen"),
     ("Layout name", "Name des Layouts"),
-    ("Switch layout by sheet type", "Layout je nach Blattart wechseln"),
+    (
+        "Switch layout by sheet type",
+        "Layout je nach Blattart wechseln",
+    ),
     ("Off", "Aus"),
     ("Every minute", "Jede Minute"),
     ("Every 3 minutes", "Alle 3 Minuten"),
     ("Every 5 minutes", "Alle 5 Minuten"),
     ("Every 10 minutes", "Alle 10 Minuten"),
-    ("Also save the project file", "Auch die Projektdatei speichern"),
-    ("A recovery copy is always kept until you save, so work survives a crash.", "Bis zum Speichern bleibt immer eine Wiederherstellungskopie erhalten, damit Arbeit einen Absturz übersteht."),
+    (
+        "Also save the project file",
+        "Auch die Projektdatei speichern",
+    ),
+    (
+        "A recovery copy is always kept until you save, so work survives a crash.",
+        "Bis zum Speichern bleibt immer eine Wiederherstellungskopie erhalten, damit Arbeit einen Absturz übersteht.",
+    ),
     ("Autosaved just now", "Gerade automatisch gespeichert"),
-    ("Autosaved {n} min ago", "Vor {n} Min. automatisch gespeichert"),
-    ("Autosave failed: {e}", "Automatisches Speichern fehlgeschlagen: {e}"),
+    (
+        "Autosaved {n} min ago",
+        "Vor {n} Min. automatisch gespeichert",
+    ),
+    (
+        "Autosave failed: {e}",
+        "Automatisches Speichern fehlgeschlagen: {e}",
+    ),
     ("Recovered “{f}”", "„{f}“ wiederhergestellt"),
-    ("Recover unsaved work?", "Ungespeicherte Arbeit wiederherstellen?"),
-    ("Inkstudio was closed while these had unsaved changes. Autosave kept a copy.", "Inkstudio wurde geschlossen, während diese Arbeiten ungespeicherte Änderungen hatten. Das automatische Speichern hat eine Kopie behalten."),
+    (
+        "Recover unsaved work?",
+        "Ungespeicherte Arbeit wiederherstellen?",
+    ),
+    (
+        "Inkstudio was closed while these had unsaved changes. Autosave kept a copy.",
+        "Inkstudio wurde geschlossen, während diese Arbeiten ungespeicherte Änderungen hatten. Das automatische Speichern hat eine Kopie behalten.",
+    ),
     ("never saved", "nie gespeichert"),
     ("Recover", "Wiederherstellen"),
     ("Discard", "Verwerfen"),
     ("Later", "Später"),
-    ("Keep the copies and ask again next time", "Kopien behalten und beim nächsten Start erneut fragen"),
+    (
+        "Keep the copies and ask again next time",
+        "Kopien behalten und beim nächsten Start erneut fragen",
+    ),
     ("Pen pressure {p}", "Stiftdruck {p}"),
     ("Mirrored", "Gespiegelt"),
     ("Unsaved", "Nicht gespeichert"),
-    ("Create a sheet to start (Ctrl+N)", "Erstelle ein Blatt, um zu beginnen (Strg+N)"),
+    (
+        "Create a sheet to start (Ctrl+N)",
+        "Erstelle ein Blatt, um zu beginnen (Strg+N)",
+    ),
     ("Nothing to fill there", "Dort gibt es nichts zu füllen"),
-    ("Drag the cut across a panel", "Ziehe den Schnitt über ein Panel"),
+    (
+        "Drag the cut across a panel",
+        "Ziehe den Schnitt über ein Panel",
+    ),
     ("Panel deleted", "Panel gelöscht"),
-    ("This layer holds panels or balloons. Select a drawing layer.", "Diese Ebene enthält Panels oder Sprechblasen. Wähle eine Zeichenebene."),
+    (
+        "This layer holds panels or balloons. Select a drawing layer.",
+        "Diese Ebene enthält Panels oder Sprechblasen. Wähle eine Zeichenebene.",
+    ),
     ("The layer is locked.", "Die Ebene ist gesperrt."),
     ("Saved {f}", "{f} gespeichert"),
     ("Opened {f}", "{f} geöffnet"),
@@ -314,11 +405,17 @@ const DE: &[(&str, &str)] = &[
     ("Home", "Persönlicher Ordner"),
     ("Up", "Nach oben"),
     ("Recent", "Zuletzt"),
-    ("No Inkstudio files here.", "Hier gibt es keine Inkstudio-Dateien."),
+    (
+        "No Inkstudio files here.",
+        "Hier gibt es keine Inkstudio-Dateien.",
+    ),
     ("Replace the existing file?", "Vorhandene Datei ersetzen?"),
     ("Replace", "Ersetzen"),
     ("Save changes to “{f}”?", "Änderungen an „{f}“ speichern?"),
-    ("Your changes will be lost if you don't save them.", "Deine Änderungen gehen verloren, wenn du sie nicht speicherst."),
+    (
+        "Your changes will be lost if you don't save them.",
+        "Deine Änderungen gehen verloren, wenn du sie nicht speicherst.",
+    ),
     ("Don't save", "Nicht speichern"),
     ("New sheet", "Neues Blatt"),
     ("Name", "Name"),
@@ -340,8 +437,14 @@ const DE: &[(&str, &str)] = &[
     ("Length", "Länge"),
     ("Custom", "Eigenes Format"),
     ("{n} pages", "{n} Seiten"),
-    ("{w} × {h} mm finished · {d} dpi", "{w} × {h} mm Endformat · {d} dpi"),
-    ("Very large canvas: drawing stays fast, but exports take longer.", "Sehr große Leinwand: Zeichnen bleibt schnell, aber Exporte dauern länger."),
+    (
+        "{w} × {h} mm finished · {d} dpi",
+        "{w} × {h} mm Endformat · {d} dpi",
+    ),
+    (
+        "Very large canvas: drawing stays fast, but exports take longer.",
+        "Sehr große Leinwand: Zeichnen bleibt schnell, aber Exporte dauern länger.",
+    ),
     ("scroll ↓", "scrollen ↓"),
     ("Illustration", "Illustration"),
     ("Manga page", "Manga-Seite"),
@@ -358,8 +461,14 @@ const DE: &[(&str, &str)] = &[
     ("2 × 3", "2 × 3"),
     ("5-panel manga", "5-Panel-Manga"),
     ("Square 210 mm", "Quadrat 210 mm"),
-    ("Social post 1080 × 1350 px", "Social-Media-Beitrag 1080 × 1350 px"),
-    ("Webtoon strip 800 × 12800 px", "Webtoon-Streifen 800 × 12800 px"),
+    (
+        "Social post 1080 × 1350 px",
+        "Social-Media-Beitrag 1080 × 1350 px",
+    ),
+    (
+        "Webtoon strip 800 × 12800 px",
+        "Webtoon-Streifen 800 × 12800 px",
+    ),
     ("B5 (JIS) – manga magazine", "B5 (JIS) – Manga-Magazin"),
     ("B4 (JIS) – manga manuscript", "B4 (JIS) – Manga-Manuskript"),
     ("A5 – tankobon / doujinshi", "A5 – Tankōbon / Dōjinshi"),
@@ -439,60 +548,434 @@ const DE: &[(&str, &str)] = &[
     ("Cross-hatch tone pen", "Kreuzschraffur-Stift"),
     ("Sand tone pen", "Sandraster-Stift"),
     // ---- brush descriptions ----------------------------------------------------------------------
-    ("Main inking: strong thick–thin with pressure", "Hauptwerkzeug zum Tuschen: starker Dick-dünn-Verlauf mit Druck"),
-    ("Fine detail, faces, hatching", "Feine Details, Gesichter, Schraffuren"),
-    ("Even fine lines for backgrounds and eyes", "Gleichmäßig feine Linien für Hintergründe und Augen"),
-    ("Between G-pen and round pen: crisp, moderate swell", "Zwischen G-Pen und Maru-Pen: knackig, mäßiger Schwung"),
-    ("Expressive outlines: thins when you draw fast", "Ausdrucksstarke Konturen: wird dünner, wenn du schnell zeichnest"),
-    ("Ink brush with dry edges for bold strokes and effects", "Tuschpinsel mit trockenen Kanten für kräftige Striche und Effekte"),
-    ("Flat nib at a fixed angle: lettering, sound effects", "Breite Feder im festen Winkel: Schrift, Soundeffekte"),
-    ("Uniform technical line: panel borders, mechanical parts", "Gleichmäßige technische Linie: Panelrahmen, Mechanik"),
-    ("Chisel marker for flat, bold shapes", "Keilspitz-Marker für flächige, kräftige Formen"),
-    ("G-pen with a rough, dry-ink edge", "G-Pen mit rauer, trockener Tuschekante"),
-    ("Long, very smooth lines that fade out: speed and focus lines", "Lange, sehr glatte, auslaufende Linien: Speed- und Fokuslinien"),
-    ("Everyday sketching with paper texture", "Alltägliches Skizzieren mit Papierstruktur"),
-    ("Soft, dark sketch lines; shade with low pressure", "Weiche, dunkle Skizzenlinien; mit wenig Druck schattieren"),
-    ("Thin, even construction lines", "Dünne, gleichmäßige Konstruktionslinien"),
-    ("Light, loose layout sketch (use with a blue color)", "Leichte, lockere Layout-Skizze (mit blauer Farbe verwenden)"),
-    ("Charcoal: grainy, angled, for value studies", "Kohle: körnig, schräg, für Tonwertstudien"),
-    ("Colored pencil with visible paper tooth", "Buntstift mit sichtbarer Papierstruktur"),
-    ("Waxy crayon: very rough edges", "Wachsiger Malstift: sehr raue Kanten"),
-    ("General painting: size and opacity follow pressure", "Allgemeines Malen: Größe und Deckkraft folgen dem Druck"),
-    ("Flat brush: broad side strokes, crisp edges", "Flachpinsel: breite Seitenstriche, klare Kanten"),
-    ("Bristle marks along the stroke: fur, wood, rough fills", "Borstenspuren entlang des Strichs: Fell, Holz, raue Flächen"),
-    ("Transparent wash that builds up", "Transparente Lasur, die sich aufbaut"),
-    ("Opaque, slightly flat paint", "Deckende, leicht flache Farbe"),
-    ("Hard, uniform brush for flats and touch-ups", "Harter, gleichmäßiger Pinsel für Flächen und Korrekturen"),
+    (
+        "Main inking: strong thick–thin with pressure",
+        "Hauptwerkzeug zum Tuschen: starker Dick-dünn-Verlauf mit Druck",
+    ),
+    (
+        "Fine detail, faces, hatching",
+        "Feine Details, Gesichter, Schraffuren",
+    ),
+    (
+        "Even fine lines for backgrounds and eyes",
+        "Gleichmäßig feine Linien für Hintergründe und Augen",
+    ),
+    (
+        "Between G-pen and round pen: crisp, moderate swell",
+        "Zwischen G-Pen und Maru-Pen: knackig, mäßiger Schwung",
+    ),
+    (
+        "Expressive outlines: thins when you draw fast",
+        "Ausdrucksstarke Konturen: wird dünner, wenn du schnell zeichnest",
+    ),
+    (
+        "Ink brush with dry edges for bold strokes and effects",
+        "Tuschpinsel mit trockenen Kanten für kräftige Striche und Effekte",
+    ),
+    (
+        "Flat nib at a fixed angle: lettering, sound effects",
+        "Breite Feder im festen Winkel: Schrift, Soundeffekte",
+    ),
+    (
+        "Uniform technical line: panel borders, mechanical parts",
+        "Gleichmäßige technische Linie: Panelrahmen, Mechanik",
+    ),
+    (
+        "Chisel marker for flat, bold shapes",
+        "Keilspitz-Marker für flächige, kräftige Formen",
+    ),
+    (
+        "G-pen with a rough, dry-ink edge",
+        "G-Pen mit rauer, trockener Tuschekante",
+    ),
+    (
+        "Long, very smooth lines that fade out: speed and focus lines",
+        "Lange, sehr glatte, auslaufende Linien: Speed- und Fokuslinien",
+    ),
+    (
+        "Everyday sketching with paper texture",
+        "Alltägliches Skizzieren mit Papierstruktur",
+    ),
+    (
+        "Soft, dark sketch lines; shade with low pressure",
+        "Weiche, dunkle Skizzenlinien; mit wenig Druck schattieren",
+    ),
+    (
+        "Thin, even construction lines",
+        "Dünne, gleichmäßige Konstruktionslinien",
+    ),
+    (
+        "Light, loose layout sketch (use with a blue color)",
+        "Leichte, lockere Layout-Skizze (mit blauer Farbe verwenden)",
+    ),
+    (
+        "Charcoal: grainy, angled, for value studies",
+        "Kohle: körnig, schräg, für Tonwertstudien",
+    ),
+    (
+        "Colored pencil with visible paper tooth",
+        "Buntstift mit sichtbarer Papierstruktur",
+    ),
+    (
+        "Waxy crayon: very rough edges",
+        "Wachsiger Malstift: sehr raue Kanten",
+    ),
+    (
+        "General painting: size and opacity follow pressure",
+        "Allgemeines Malen: Größe und Deckkraft folgen dem Druck",
+    ),
+    (
+        "Flat brush: broad side strokes, crisp edges",
+        "Flachpinsel: breite Seitenstriche, klare Kanten",
+    ),
+    (
+        "Bristle marks along the stroke: fur, wood, rough fills",
+        "Borstenspuren entlang des Strichs: Fell, Holz, raue Flächen",
+    ),
+    (
+        "Transparent wash that builds up",
+        "Transparente Lasur, die sich aufbaut",
+    ),
+    (
+        "Opaque, slightly flat paint",
+        "Deckende, leicht flache Farbe",
+    ),
+    (
+        "Hard, uniform brush for flats and touch-ups",
+        "Harter, gleichmäßiger Pinsel für Flächen und Korrekturen",
+    ),
     ("Soft gradients and glows", "Weiche Verläufe und Leuchten"),
     ("Airbrush with a firmer edge", "Airbrush mit festerer Kante"),
     ("Spray-can speckle", "Sprühdosen-Sprenkel"),
-    ("Sand, dust and gritty texture", "Sand, Staub und körnige Struktur"),
-    ("Clean, hard-edged erasing", "Sauberes Radieren mit harter Kante"),
+    (
+        "Sand, dust and gritty texture",
+        "Sand, Staub und körnige Struktur",
+    ),
+    (
+        "Clean, hard-edged erasing",
+        "Sauberes Radieren mit harter Kante",
+    ),
     ("Soft edge for lightening", "Weiche Kante zum Aufhellen"),
-    ("Gently lifts pencil sketches", "Hebt Bleistiftskizzen sanft ab"),
-    ("Erases with a textured, broken edge", "Radiert mit strukturierter, gebrochener Kante"),
-    ("Scratch lines into tone or black: highlights, shine", "Linien in Raster oder Schwarz kratzen: Glanzlichter, Schimmer"),
-    ("Thin tapered scratch lines (like a knife on screentone)", "Dünne, spitz zulaufende Kratzlinien (wie ein Messer auf Rasterfolie)"),
-    ("Bundle of parallel streaks in one stroke", "Bündel paralleler Striche in einem Zug"),
-    ("Hair strands: several tapered lines at once", "Haarsträhnen: mehrere spitz zulaufende Linien gleichzeitig"),
-    ("Dashed line: stitches, motion paths, cut lines", "Gestrichelte Linie: Nähte, Bewegungspfade, Schnittlinien"),
+    (
+        "Gently lifts pencil sketches",
+        "Hebt Bleistiftskizzen sanft ab",
+    ),
+    (
+        "Erases with a textured, broken edge",
+        "Radiert mit strukturierter, gebrochener Kante",
+    ),
+    (
+        "Scratch lines into tone or black: highlights, shine",
+        "Linien in Raster oder Schwarz kratzen: Glanzlichter, Schimmer",
+    ),
+    (
+        "Thin tapered scratch lines (like a knife on screentone)",
+        "Dünne, spitz zulaufende Kratzlinien (wie ein Messer auf Rasterfolie)",
+    ),
+    (
+        "Bundle of parallel streaks in one stroke",
+        "Bündel paralleler Striche in einem Zug",
+    ),
+    (
+        "Hair strands: several tapered lines at once",
+        "Haarsträhnen: mehrere spitz zulaufende Linien gleichzeitig",
+    ),
+    (
+        "Dashed line: stitches, motion paths, cut lines",
+        "Gestrichelte Linie: Nähte, Bewegungspfade, Schnittlinien",
+    ),
     ("Sewing stitches on clothes", "Nähte auf Kleidung"),
     ("Slanted rain streaks", "Schräge Regenstriche"),
-    ("Snow, dust motes, bokeh dots (use white or a light color)", "Schnee, Staubpartikel, Bokeh-Punkte (mit Weiß oder heller Farbe)"),
+    (
+        "Snow, dust motes, bokeh dots (use white or a light color)",
+        "Schnee, Staubpartikel, Bokeh-Punkte (mit Weiß oder heller Farbe)",
+    ),
     ("Clouds, smoke, steam", "Wolken, Rauch, Dampf"),
     ("Bubbles and water drops", "Blasen und Wassertropfen"),
     ("Grass tufts and fur clumps", "Grasbüschel und Fellbüschel"),
-    ("Foliage: scattered leaf shapes", "Laub: verstreute Blattformen"),
-    ("Four-point sparkles for shine and magic", "Vierzackiges Glitzern für Glanz und Magie"),
-    ("Scattered five-point stars", "Verstreute fünfzackige Sterne"),
-    ("Hearts for shoujo backgrounds and reactions", "Herzen für Shōjo-Hintergründe und Reaktionen"),
-    ("Flower background for romance scenes", "Blumenhintergrund für Romantikszenen"),
-    ("Stippled dots for shading by hand", "Punktierung zum Schattieren von Hand"),
-    ("Paint screentone directly: 60 lpi, 20%", "Rasterfolie direkt malen: 60 lpi, 20 %"),
-    ("Darker tone for shadows: 60 lpi, 40%", "Dunkleres Raster für Schatten: 60 lpi, 40 %"),
-    ("Line tone: hatching texture, motion", "Linienraster: Schraffurstruktur, Bewegung"),
-    ("Cross-hatch tone for dark shading", "Kreuzschraffur-Raster für dunkle Schattierung"),
-    ("Sand/noise tone: ground, stone, grit", "Sand-/Rauschraster: Boden, Stein, Körnung"),
+    (
+        "Foliage: scattered leaf shapes",
+        "Laub: verstreute Blattformen",
+    ),
+    (
+        "Four-point sparkles for shine and magic",
+        "Vierzackiges Glitzern für Glanz und Magie",
+    ),
+    (
+        "Scattered five-point stars",
+        "Verstreute fünfzackige Sterne",
+    ),
+    (
+        "Hearts for shoujo backgrounds and reactions",
+        "Herzen für Shōjo-Hintergründe und Reaktionen",
+    ),
+    (
+        "Flower background for romance scenes",
+        "Blumenhintergrund für Romantikszenen",
+    ),
+    (
+        "Stippled dots for shading by hand",
+        "Punktierung zum Schattieren von Hand",
+    ),
+    (
+        "Paint screentone directly: 60 lpi, 20%",
+        "Rasterfolie direkt malen: 60 lpi, 20 %",
+    ),
+    (
+        "Darker tone for shadows: 60 lpi, 40%",
+        "Dunkleres Raster für Schatten: 60 lpi, 40 %",
+    ),
+    (
+        "Line tone: hatching texture, motion",
+        "Linienraster: Schraffurstruktur, Bewegung",
+    ),
+    (
+        "Cross-hatch tone for dark shading",
+        "Kreuzschraffur-Raster für dunkle Schattierung",
+    ),
+    (
+        "Sand/noise tone: ground, stone, grit",
+        "Sand-/Rauschraster: Boden, Stein, Körnung",
+    ),
+    // ---- coloring, rulers, books, reader, timeline ----
+    ("1-point perspective", "1-Punkt-Perspektive"),
+    ("2-point perspective", "2-Punkt-Perspektive"),
+    ("2K 2560 × 1440 px", "2K 2560 × 1440 px"),
+    ("3-point perspective", "3-Punkt-Perspektive"),
+    ("4K 3840 × 2160 px", "4K 3840 × 2160 px"),
+    (
+        "A short description of the story.",
+        "Eine kurze Beschreibung der Geschichte.",
+    ),
+    (
+        "Add cover, title page, credits, afterword and back cover",
+        "Cover, Titelseite, Credits, Nachwort und Rückseite hinzufügen",
+    ),
+    ("Add credit", "Mitwirkende hinzufügen"),
+    ("Light layer", "Lichtebene"),
+    (
+        "New layer clipped to the selected one, blend mode Screen",
+        "Neue Ebene, an die gewählte geschnitten, Modus Negativ multiplizieren",
+    ),
+    ("Shadow layer", "Schattenebene"),
+    (
+        "New layer clipped to the selected one, blend mode Multiply",
+        "Neue Ebene, an die gewählte geschnitten, Modus Multiplizieren",
+    ),
+    (
+        "Add the main color to this set",
+        "Hauptfarbe zu diesem Set hinzufügen",
+    ),
+    ("Add track", "Spur hinzufügen"),
+    ("Afterword", "Nachwort"),
+    ("Angle", "Winkel"),
+    ("Apply", "Übernehmen"),
+    ("Art", "Zeichnungen"),
+    ("Author", "Autor:in"),
+    ("Axes", "Achsen"),
+    ("Back cover", "Rückseite"),
+    ("Basic", "Grundfarben"),
+    ("Book", "Buch"),
+    ("Book info", "Buchinfo"),
+    (
+        "Book info (title, author, credits)…",
+        "Buchinfo (Titel, Autor:in, Credits)…",
+    ),
+    ("Book pages", "Buchseiten"),
+    ("Chapter", "Kapitel"),
+    (
+        "Click the canvas to pick a color. With any painting tool, hold Alt and click.",
+        "Klicke auf die Leinwand, um eine Farbe aufzunehmen. Mit jedem Malwerkzeug: Alt halten und klicken.",
+    ),
+    (
+        "Click to draw on this track · double-click to rename",
+        "Klicken, um auf dieser Spur zu zeichnen · Doppelklick zum Umbenennen",
+    ),
+    (
+        "Click to pick · Alt + click with any painting tool",
+        "Klicken zum Aufnehmen · Alt + Klick mit jedem Malwerkzeug",
+    ),
+    (
+        "Click to use · right-click to remove",
+        "Klicken zum Verwenden · Rechtsklick zum Entfernen",
+    ),
+    ("Close reader (Esc)", "Leseansicht schließen (Esc)"),
+    (
+        "Colors you paint with appear here.",
+        "Farben, mit denen du malst, erscheinen hier.",
+    ),
+    ("Concentric circles", "Konzentrische Kreise"),
+    ("Concept art", "Concept Art"),
+    ("Contents", "Inhalt"),
+    (
+        "Copy the current drawing to a new cel here",
+        "Aktuelle Zeichnung hier in eine neue Cel kopieren",
+    ),
+    ("Cover", "Cover"),
+    ("Credits", "Credits"),
+    ("Delete color set", "Farbset löschen"),
+    ("Delete frame", "Frame löschen"),
+    ("Description", "Beschreibung"),
+    (
+        "Drag across the page: main color at the start, sub color (or transparent) at the end. Use it on a clipped layer to shade.",
+        "Über die Seite ziehen: Hauptfarbe am Anfang, Nebenfarbe (oder transparent) am Ende. Auf einer geschnittenen Ebene zum Schattieren verwenden.",
+    ),
+    (
+        "Draw around an area to fill it",
+        "Um einen Bereich zeichnen, um ihn zu füllen",
+    ),
+    (
+        "Draw around an area: it is filled with the main color when you lift the pen.",
+        "Um einen Bereich zeichnen: Beim Absetzen des Stifts wird er mit der Hauptfarbe gefüllt.",
+    ),
+    ("Duplicate", "Duplizieren"),
+    ("Environment", "Umgebung"),
+    (
+        "Every area enclosed by line art gets its own flat color on a new layer under the ink.",
+        "Jeder von Linien umschlossene Bereich bekommt eine eigene Grundfarbe auf einer neuen Ebene unter der Tusche.",
+    ),
+    ("Eyedropper", "Pipette"),
+    ("Eyedropper (I / hold Alt)", "Pipette (I / Alt halten)"),
+    (
+        "Fill closed areas (flats)",
+        "Geschlossene Flächen füllen (Flats)",
+    ),
+    ("First frame (Home)", "Erster Frame (Pos1)"),
+    ("Flats", "Flats"),
+    ("Focus lines", "Fokuslinien"),
+    ("Gradient", "Verlauf"),
+    ("Gradient (D)", "Verlauf (D)"),
+    ("Hex", "Hex"),
+    (
+        "Hold Alt while drawing to ignore the ruler for one stroke.",
+        "Alt beim Zeichnen halten, um das Lineal für einen Strich zu ignorieren.",
+    ),
+    (
+        "Insert frame (hold the drawing one frame longer)",
+        "Frame einfügen (Zeichnung einen Frame länger halten)",
+    ),
+    ("Insert special page", "Sonderseite einfügen"),
+    ("Kaleidoscope", "Kaleidoskop"),
+    ("Lasso fill", "Lasso-Füllung"),
+    ("Lasso fill (L)", "Lasso-Füllung (L)"),
+    ("Last frame (End)", "Letzter Frame (Ende)"),
+    (
+        "Left to right · → next page · ← previous · D single/double · Esc close",
+        "Links nach rechts · → nächste Seite · ← vorherige · D Einzel/Doppel · Esc schließen",
+    ),
+    ("Loading…", "Lädt…"),
+    ("Made with Inkstudio", "Erstellt mit Inkstudio"),
+    ("Main color → sub color", "Hauptfarbe → Nebenfarbe"),
+    ("Main color → transparent", "Hauptfarbe → transparent"),
+    ("Main → sub", "Haupt → Neben"),
+    ("Main → transparent", "Haupt → transparent"),
+    (
+        "Make a complete book (cover … back cover)",
+        "Vollständiges Buch erstellen (Cover … Rückseite)",
+    ),
+    (
+        "Mirror (off = rotate copies)",
+        "Spiegeln (aus = Kopien drehen)",
+    ),
+    ("Mirror symmetry", "Spiegelsymmetrie"),
+    ("My colors", "Meine Farben"),
+    ("New cel", "Neue Cel"),
+    ("New color set", "Neues Farbset"),
+    ("Next page", "Nächste Seite"),
+    (
+        "No closed areas found. Draw line art on the Ink layer first.",
+        "Keine geschlossenen Flächen gefunden. Zeichne zuerst Linien auf der Tusche-Ebene.",
+    ),
+    ("Parallel lines", "Parallele Linien"),
+    (
+        "Perspective & symmetry rulers (U)",
+        "Perspektiv- & Symmetrielineale (U)",
+    ),
+    (
+        "Pick a ruler in the Sub tool palette, then click the page",
+        "Wähle ein Lineal in der Unterwerkzeug-Palette und klicke auf die Seite",
+    ),
+    (
+        "Pick a ruler, then click the page. Drag the handles to adjust it.",
+        "Lineal wählen, dann auf die Seite klicken. Zum Anpassen die Griffe ziehen.",
+    ),
+    ("Previous page", "Vorherige Seite"),
+    ("Quick coloring", "Schnell kolorieren"),
+    ("Read", "Lesen"),
+    ("Read as manga", "Als Manga lesen"),
+    ("Read as manga (F5)", "Als Manga lesen (F5)"),
+    ("Recent colors", "Zuletzt verwendet"),
+    ("Remove", "Entfernen"),
+    ("Remove ruler", "Lineal entfernen"),
+    (
+        "Right to left · ← next page · → previous · D single/double · Esc close",
+        "Rechts nach links · ← nächste Seite · → vorherige · D Einzel/Doppel · Esc schließen",
+    ),
+    ("Role (e.g. Lettering)", "Rolle (z. B. Lettering)"),
+    ("Rotational symmetry", "Rotationssymmetrie"),
+    ("Ruler", "Lineal"),
+    ("Rulers", "Lineale"),
+    (
+        "Sets are saved with your settings.",
+        "Sets werden mit deinen Einstellungen gespeichert.",
+    ),
+    ("Shadows", "Schatten"),
+    ("Show / hide track", "Spur ein-/ausblenden"),
+    ("Single pages (D)", "Einzelseiten (D)"),
+    ("Skin", "Haut"),
+    ("Sliders", "Regler"),
+    ("Snap", "Einrasten"),
+    ("Snap strokes to the ruler", "Striche am Lineal einrasten"),
+    (
+        "Start a new drawing on this frame",
+        "Auf diesem Frame eine neue Zeichnung beginnen",
+    ),
+    ("Story", "Story"),
+    ("Story & art", "Story & Zeichnungen"),
+    (
+        "Thank you for reading {title}!\nWrite your afterword here.",
+        "Danke fürs Lesen von {title}!\nSchreibe hier dein Nachwort.",
+    ),
+    ("This page has no ruler.", "Diese Seite hat kein Lineal."),
+    ("Title", "Titel"),
+    ("Title page", "Titelseite"),
+    ("Tracks", "Spuren"),
+    ("Two-page spreads (D)", "Doppelseiten (D)"),
+    (
+        "Update special pages from book info",
+        "Sonderseiten aus Buchinfo aktualisieren",
+    ),
+    (
+        "Used on the cover, title page, credits and back cover.",
+        "Wird auf Cover, Titelseite, Credits und Rückseite verwendet.",
+    ),
+    (
+        "Uses the main color. Alt + click picks a color with any painting tool.",
+        "Verwendet die Hauptfarbe. Alt + Klick nimmt mit jedem Malwerkzeug eine Farbe auf.",
+    ),
+    (
+        "Value check (grayscale view)",
+        "Tonwertprüfung (Graustufenansicht)",
+    ),
+    ("Value check (grayscale)", "Tonwertprüfung (Graustufen)"),
+    ("after", "danach"),
+    ("before", "davor"),
+    ("Subtitle / volume", "Untertitel / Band"),
+    ("Story by", "Story von"),
+    ("Art by", "Zeichnungen von"),
+    ("Publisher / circle", "Verlag / Zirkel"),
+    ("Year", "Jahr"),
+    ("Shadow", "Schatten"),
+    ("Light", "Licht"),
+    ("Story page", "Story-Seite"),
+    (
+        "{n} areas filled on the Flats layer",
+        "{n} Flächen auf der Flats-Ebene gefüllt",
+    ),
+    (
+        "{n} vanishing points · the orange line is the horizon",
+        "{n} Fluchtpunkte · die orange Linie ist der Horizont",
+    ),
 ];
 
 #[cfg(test)]

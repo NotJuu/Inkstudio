@@ -18,6 +18,12 @@ pub fn handle(ui: &Ui, at: Pos2, hot: bool) -> Rect {
     let s = tokens::layout::HANDLE_SIZE;
     let r = Rect::from_center_size(at, vec2(s, s));
     let fill = if hot { p.focus_ring } else { p.overlay_handle };
-    ui.painter().rect(r, CornerRadius::same(1), fill, Stroke::new(1.0, p.overlay_handle_border), StrokeKind::Inside);
+    ui.painter().rect(
+        r,
+        CornerRadius::same(1),
+        fill,
+        Stroke::new(1.0, p.overlay_handle_border),
+        StrokeKind::Inside,
+    );
     r.expand(tokens::layout::HIT_SLOP)
 }

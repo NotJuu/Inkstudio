@@ -1,8 +1,10 @@
 //! Layer blend modes on premultiplied 8-bit colors (separable modes, W3C compositing formulas).
 
-use crate::color::{mul8, Rgba};
+use crate::color::{Rgba, mul8};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum BlendMode {
     #[default]
     Normal,
@@ -98,7 +100,11 @@ impl BlendMode {
                 if cs <= 0.5 {
                     cb - (1.0 - 2.0 * cs) * cb * (1.0 - cb)
                 } else {
-                    let d = if cb <= 0.25 { ((16.0 * cb - 12.0) * cb + 4.0) * cb } else { cb.sqrt() };
+                    let d = if cb <= 0.25 {
+                        ((16.0 * cb - 12.0) * cb + 4.0) * cb
+                    } else {
+                        cb.sqrt()
+                    };
                     cb + (2.0 * cs - 1.0) * (d - cb)
                 }
             }

@@ -10,9 +10,9 @@
 //! * Only tiles touched since the last update are recomposited.
 
 use crate::curve::Curve;
-use crate::tip::{hash01, sdf, Grain, Scatter, TipShape};
+use crate::tip::{Grain, Scatter, TipShape, hash01, sdf};
 use crate::tone::{Tone, ToneSettings};
-use ink_core::tile::{TileKey, TILE, TILE_PX};
+use ink_core::tile::{TILE, TILE_PX, TileKey};
 use ink_core::{Document, LayerId, Rgba, Tile, UndoEntry};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -32,7 +32,13 @@ pub struct Sample {
 
 impl Sample {
     pub fn new(x: f32, y: f32, pressure: f32) -> Self {
-        Self { x, y, pressure, time: 0.0, scale: 1.0 }
+        Self {
+            x,
+            y,
+            pressure,
+            time: 0.0,
+            scale: 1.0,
+        }
     }
 }
 
@@ -128,7 +134,14 @@ impl BrushParams {
 
     /// Fine, even lines for details and hatching: steeper pressure curve, thinner minimum.
     pub fn mapping_pen(size: f32) -> Self {
-        Self { name: "Mapping pen".into(), min_size: 0.15, size_curve: Some(Curve::gamma(0.8)), taper_start: size * 4.0, taper_end: size * 4.0, ..Self::g_pen(size) }
+        Self {
+            name: "Mapping pen".into(),
+            min_size: 0.15,
+            size_curve: Some(Curve::gamma(0.8)),
+            taper_start: size * 4.0,
+            taper_end: size * 4.0,
+            ..Self::g_pen(size)
+        }
     }
 
     /// Sketching: pressure drives opacity, slightly soft edge.
@@ -166,7 +179,15 @@ impl BrushParams {
     }
 
     pub fn eraser(size: f32) -> Self {
-        Self { name: "Eraser".into(), min_size: 0.5, paint: Paint::Erase, taper_start: 0.0, taper_end: 0.0, stabilization: 0, ..Self::g_pen(size) }
+        Self {
+            name: "Eraser".into(),
+            min_size: 0.5,
+            paint: Paint::Erase,
+            taper_start: 0.0,
+            taper_end: 0.0,
+            stabilization: 0,
+            ..Self::g_pen(size)
+        }
     }
 
     fn radius_at(&self, pressure: f32) -> f32 {
@@ -175,7 +196,11 @@ impl BrushParams {
     }
 
     fn alpha_at(&self, pressure: f32) -> f32 {
-        self.opacity * self.opacity_curve.as_ref().map_or(1.0, |c| c.eval(pressure))
+        self.opacity
+            * self
+                .opacity_curve
+                .as_ref()
+                .map_or(1.0, |c| c.eval(pressure))
     }
 }
 
@@ -188,7 +213,10 @@ pub struct Stabilizer {
 
 impl Stabilizer {
     pub fn new(level: u32) -> Self {
-        Self { window: 1 + level as usize / 3, buf: Default::default() }
+        Self {
+            window: 1 + level as usize / 3,
+            buf: Default::default(),
+        }
     }
 
     pub fn push(&mut self, s: Sample) -> Sample {
@@ -206,12 +234,20 @@ impl Stabilizer {
             acc.2 += b.pressure * w;
             wsum += w;
         }
-        Sample { x: acc.0 / wsum, y: acc.1 / wsum, pressure: acc.2 / wsum, time: s.time, scale: s.scale }
+        Sample {
+            x: acc.0 / wsum,
+            y: acc.1 / wsum,
+            pressure: acc.2 / wsum,
+            time: s.time,
+            scale: s.scale,
+        }
     }
 
     /// Samples that walk the smoothed position onto the last raw sample (post-correction).
     pub fn drain(&mut self) -> Vec<Sample> {
-        let Some(&last) = self.buf.back() else { return Vec::new() };
+        let Some(&last) = self.buf.back() else {
+            return Vec::new();
+        };
         (1..self.window).map(|_| self.push(last)).collect()
     }
 }
@@ -245,7 +281,9 @@ struct CoverageBuffer {
 
 impl CoverageBuffer {
     fn tile(&mut self, k: TileKey) -> &mut [u16] {
-        self.tiles.entry(k).or_insert_with(|| vec![0u16; TILE_PX].into_boxed_slice())
+        self.tiles
+            .entry(k)
+            .or_insert_with(|| vec![0u16; TILE_PX].into_boxed_slice())
     }
 }
 
@@ -272,6 +310,8 @@ pub struct Stroke {
     dir: f32,
     speed: f32,
     seq: u32,
+    /// Extra copies of every dab (symmetry rulers): 2×3 affine matrices [a, b, c, d, e, f].
+    mirrors: Vec<[f32; 6]>,
 }
 
 impl Stroke {
@@ -296,7 +336,14 @@ impl Stroke {
             dir: 0.0,
             speed: 0.0,
             seq: 0,
+            mirrors: Vec::new(),
         }
+    }
+
+    /// Draw every dab again through each affine transform (symmetry). All copies share the
+    /// stroke's coverage buffer, so they never overwrite each other and undo as one stroke.
+    pub fn set_mirrors(&mut self, mirrors: Vec<[f32; 6]>) {
+        self.mirrors = mirrors;
     }
 
     /// The smoothed path so far (after stabilization), for vector layers.
@@ -371,13 +418,20 @@ impl Stroke {
             }
         }
         let label = self.params.name.clone();
-        UndoEntry::Tiles { label, layer: self.layer, tiles: self.base.into_iter().collect() }
+        UndoEntry::Tiles {
+            label,
+            layer: self.layer,
+            tiles: self.base.into_iter().collect(),
+        }
     }
 
     fn place(&mut self, s: Sample) {
         let Some(prev) = self.last else {
             self.last = Some(s);
-            self.path.push(PathPoint { sample: s, dist: 0.0 });
+            self.path.push(PathPoint {
+                sample: s,
+                dist: 0.0,
+            });
             self.push_dab_scaled(s.x, s.y, s.pressure, 0.0, s.scale);
             return;
         };
@@ -408,7 +462,10 @@ impl Stroke {
             self.push_dab_scaled(prev.x + dx * t, prev.y + dy * t, p, dist, sc);
         }
         self.length += seg;
-        self.path.push(PathPoint { sample: s, dist: self.length });
+        self.path.push(PathPoint {
+            sample: s,
+            dist: self.length,
+        });
         self.last = Some(s);
     }
 
@@ -433,7 +490,15 @@ impl Stroke {
         }
         let angle = pr.angle_deg.to_radians() + if pr.follow_direction { self.dir } else { 0.0 };
         self.seq = self.seq.wrapping_add(1);
-        let d = Dab { x, y, radius, alpha: pr.alpha_at(pressure), dist, angle, seed: self.seq };
+        let d = Dab {
+            x,
+            y,
+            radius,
+            alpha: pr.alpha_at(pressure),
+            dist,
+            angle,
+            seed: self.seq,
+        };
         self.stamp(&d);
         self.dabs.push(d);
     }
@@ -441,44 +506,83 @@ impl Stroke {
     /// Rasterize one dab (or its scattered particles) into the coverage buffer.
     fn stamp(&mut self, d: &Dab) {
         match self.params.scatter {
-            None => self.stamp_one(d.x, d.y, d.radius, d.angle, d.alpha),
+            None => self.emit(d.x, d.y, d.radius, d.angle, d.alpha),
             Some(sc) => {
                 for k in 0..sc.count as u32 {
                     let rnd = |j: u32| hash01(d.seed, k * 8 + j);
                     let a = rnd(0) * std::f32::consts::TAU;
                     let off = rnd(1).sqrt() * sc.spread * d.radius;
                     let r = d.radius * sc.size * (1.0 - sc.size_jitter * rnd(2));
-                    let ang = d.angle + sc.angle_jitter * (rnd(3) * 2.0 - 1.0) * std::f32::consts::PI;
+                    let ang =
+                        d.angle + sc.angle_jitter * (rnd(3) * 2.0 - 1.0) * std::f32::consts::PI;
                     let alpha = d.alpha * (1.0 - sc.opacity_jitter * rnd(4));
-                    self.stamp_one(d.x + a.cos() * off, d.y + a.sin() * off, r, ang, alpha);
+                    self.emit(d.x + a.cos() * off, d.y + a.sin() * off, r, ang, alpha);
                 }
             }
         }
     }
 
+    /// Stamp at the position and at every mirrored position.
+    fn emit(&mut self, x: f32, y: f32, radius: f32, angle: f32, alpha: f32) {
+        self.stamp_one(x, y, radius, angle, alpha);
+        for i in 0..self.mirrors.len() {
+            let m = self.mirrors[i];
+            let (mx, my) = (m[0] * x + m[1] * y + m[2], m[3] * x + m[4] * y + m[5]);
+            let rot = m[3].atan2(m[0]);
+            let reflect = m[0] * m[4] - m[1] * m[3] < 0.0;
+            let a = if reflect { rot - angle } else { rot + angle };
+            self.stamp_one(mx, my, radius, a, alpha);
+        }
+    }
+
     fn stamp_one(&mut self, cx: f32, cy: f32, radius: f32, angle: f32, alpha: f32) {
-        let plain = self.params.tip == TipShape::Round && self.params.roundness >= 0.999 && self.params.grain.is_none() && self.tone.is_none();
+        let plain = self.params.tip == TipShape::Round
+            && self.params.roundness >= 0.999
+            && self.params.grain.is_none()
+            && self.tone.is_none();
         if !plain {
             return self.stamp_shaped(cx, cy, radius, angle, alpha);
         }
-        let d = Dab { x: cx, y: cy, radius, alpha, dist: 0.0, angle, seed: 0 };
+        let d = Dab {
+            x: cx,
+            y: cy,
+            radius,
+            alpha,
+            dist: 0.0,
+            angle,
+            seed: 0,
+        };
         let r = d.radius.max(0.3);
         let hard = self.params.hardness.clamp(0.0, 1.0);
         let aa = if self.params.anti_alias { 1.0 } else { 0.0 };
         // Edge: hard brushes fade over 1px, soft brushes over (1-hardness) of the radius.
         let fade = (r * (1.0 - hard)).max(aa).max(1e-3);
         let inner = (r - fade * 0.5).max(0.0);
-        let (x0, y0) = ((d.x - r - 1.0).floor() as i32, (d.y - r - 1.0).floor() as i32);
-        let (x1, y1) = ((d.x + r + 1.0).ceil() as i32 + 1, (d.y + r + 1.0).ceil() as i32 + 1);
+        let (x0, y0) = (
+            (d.x - r - 1.0).floor() as i32,
+            (d.y - r - 1.0).floor() as i32,
+        );
+        let (x1, y1) = (
+            (d.x + r + 1.0).ceil() as i32 + 1,
+            (d.y + r + 1.0).ceil() as i32 + 1,
+        );
         let accumulate = self.params.coverage == Coverage::Accumulate;
         let strength = if accumulate { self.params.flow } else { 1.0 } * d.alpha;
         for k in ink_core::tile::keys_in(x0, y0, x1, y1) {
             let ox = k.0 * TILE as i32;
             let oy = k.1 * TILE as i32;
             let (lx0, ly0) = ((x0 - ox).max(0) as usize, (y0 - oy).max(0) as usize);
-            let (lx1, ly1) = ((x1 - ox).min(TILE as i32) as usize, (y1 - oy).min(TILE as i32) as usize);
+            let (lx1, ly1) = (
+                (x1 - ox).min(TILE as i32) as usize,
+                (y1 - oy).min(TILE as i32) as usize,
+            );
             let pr = self.pending.entry(k).or_insert([u16::MAX, u16::MAX, 0, 0]);
-            *pr = [pr[0].min(lx0 as u16), pr[1].min(ly0 as u16), pr[2].max(lx1 as u16), pr[3].max(ly1 as u16)];
+            *pr = [
+                pr[0].min(lx0 as u16),
+                pr[1].min(ly0 as u16),
+                pr[2].max(lx1 as u16),
+                pr[3].max(ly1 as u16),
+            ];
             let buf = self.cov.tile(k);
             for ly in ly0..ly1 {
                 let py = (oy + ly as i32) as f32 + 0.5 - d.y;
@@ -491,7 +595,11 @@ impl Stroke {
                     } else {
                         let t = ((dist - inner) / fade).clamp(0.0, 1.0);
                         let s = 1.0 - t;
-                        if hard >= 1.0 { s } else { s * s * (3.0 - 2.0 * s) }
+                        if hard >= 1.0 {
+                            s
+                        } else {
+                            s * s * (3.0 - 2.0 * s)
+                        }
                     };
                     if a <= 0.0 {
                         continue;
@@ -528,11 +636,23 @@ impl Stroke {
             let ox = k.0 * TILE as i32;
             let oy = k.1 * TILE as i32;
             let (lx0, ly0) = ((x0 - ox).max(0) as usize, (y0 - oy).max(0) as usize);
-            let (lx1, ly1) = ((x1 - ox).min(TILE as i32) as usize, (y1 - oy).min(TILE as i32) as usize);
+            let (lx1, ly1) = (
+                (x1 - ox).min(TILE as i32) as usize,
+                (y1 - oy).min(TILE as i32) as usize,
+            );
             let pe = self.pending.entry(k).or_insert([u16::MAX, u16::MAX, 0, 0]);
-            *pe = [pe[0].min(lx0 as u16), pe[1].min(ly0 as u16), pe[2].max(lx1 as u16), pe[3].max(ly1 as u16)];
+            *pe = [
+                pe[0].min(lx0 as u16),
+                pe[1].min(ly0 as u16),
+                pe[2].max(lx1 as u16),
+                pe[3].max(ly1 as u16),
+            ];
             let tone = self.tone.as_ref();
-            let buf = self.cov.tiles.entry(k).or_insert_with(|| vec![0u16; TILE_PX].into_boxed_slice());
+            let buf = self
+                .cov
+                .tiles
+                .entry(k)
+                .or_insert_with(|| vec![0u16; TILE_PX].into_boxed_slice());
             for ly in ly0..ly1 {
                 let gy = (oy + ly as i32) as f32 + 0.5;
                 let py = gy - cy;
@@ -548,7 +668,11 @@ impl Stroke {
                         continue;
                     }
                     let s = 1.0 - t;
-                    let mut a = if hard >= 1.0 { s } else { s * s * (3.0 - 2.0 * s) };
+                    let mut a = if hard >= 1.0 {
+                        s
+                    } else {
+                        s * s * (3.0 - 2.0 * s)
+                    };
                     if let Some(g) = grain {
                         a *= g.factor(gx, gy);
                     }
@@ -574,7 +698,9 @@ impl Stroke {
     fn flush(&mut self, doc: &mut Document) -> Vec<TileKey> {
         let jobs: Vec<(TileKey, [u16; 4])> = self.pending.drain().collect();
         let keys: Vec<TileKey> = jobs.iter().map(|(k, _)| *k).collect();
-        let Some(layer) = doc.layer_mut(self.layer) else { return Vec::new() };
+        let Some(layer) = doc.layer_mut(self.layer) else {
+            return Vec::new();
+        };
         if layer.props.locked {
             return Vec::new();
         }
@@ -582,7 +708,11 @@ impl Stroke {
         let erase = self.params.paint == Paint::Erase;
         let lock_alpha = self.lock_alpha;
         for &(k, [x0, y0, x1, y1]) in &jobs {
-            let base = self.base.entry(k).or_insert_with(|| layer.raster.tile(k).cloned()).clone();
+            let base = self
+                .base
+                .entry(k)
+                .or_insert_with(|| layer.raster.tile(k).cloned())
+                .clone();
             if base.is_none() && (erase || lock_alpha) {
                 continue; // nothing to erase / nothing to paint onto
             }
@@ -592,22 +722,28 @@ impl Stroke {
             let out = layer.raster.tile_mut(k);
             for y in y0 as usize..y1 as usize {
                 for i in y * TILE + x0 as usize..y * TILE + x1 as usize {
-                let c = cov[i];
-                if c == 0 {
-                    continue;
-                }
-                let k8 = ((c as u32 * 255 + 32767) / 65535) as u8;
-                let b = base.as_ref().map_or(Rgba::TRANSPARENT, |t| t.px[i]);
-                out.px[i] = if erase {
-                    b.scale(255 - k8)
-                } else if lock_alpha {
-                    // Recolor visible pixels, keep their alpha.
-                    let src = color.scale(b.a());
-                    let mixed = src.scale(k8);
-                    Rgba([0, 1, 2, 3].map(|j| if j == 3 { b.0[3] } else { mixed.0[j].saturating_add(ink_core::color::mul8(b.0[j], 255 - k8)) }))
-                } else {
-                    color.scale(k8).over(b)
-                };
+                    let c = cov[i];
+                    if c == 0 {
+                        continue;
+                    }
+                    let k8 = ((c as u32 * 255 + 32767) / 65535) as u8;
+                    let b = base.as_ref().map_or(Rgba::TRANSPARENT, |t| t.px[i]);
+                    out.px[i] = if erase {
+                        b.scale(255 - k8)
+                    } else if lock_alpha {
+                        // Recolor visible pixels, keep their alpha.
+                        let src = color.scale(b.a());
+                        let mixed = src.scale(k8);
+                        Rgba([0, 1, 2, 3].map(|j| {
+                            if j == 3 {
+                                b.0[3]
+                            } else {
+                                mixed.0[j].saturating_add(ink_core::color::mul8(b.0[j], 255 - k8))
+                            }
+                        }))
+                    } else {
+                        color.scale(k8).over(b)
+                    };
                 }
             }
         }
@@ -627,11 +763,25 @@ mod tests {
         (d, id)
     }
 
-    fn line(d: &mut Document, id: LayerId, p: BrushParams, from: (f32, f32), to: (f32, f32), pressure: f32) -> UndoEntry {
+    fn line(
+        d: &mut Document,
+        id: LayerId,
+        p: BrushParams,
+        from: (f32, f32),
+        to: (f32, f32),
+        pressure: f32,
+    ) -> UndoEntry {
         let mut s = Stroke::begin(d, id, p, Rgba::BLACK);
         for i in 0..=50 {
             let t = i as f32 / 50.0;
-            s.add(d, Sample::new(from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t, pressure));
+            s.add(
+                d,
+                Sample::new(
+                    from.0 + (to.0 - from.0) * t,
+                    from.1 + (to.1 - from.1) * t,
+                    pressure,
+                ),
+            );
         }
         s.end(d)
     }
@@ -658,8 +808,18 @@ mod tests {
         let r = &d.layer(id).unwrap().raster;
         let width = |x: i32| (180..220).filter(|&y| r.get(x, y).a() > 127).count();
         assert!(width(255) >= 14, "middle {}", width(255));
-        assert!(width(45) < width(255), "start taper {} vs {}", width(45), width(255));
-        assert!(width(466) < width(255), "end taper {} vs {}", width(466), width(255));
+        assert!(
+            width(45) < width(255),
+            "start taper {} vs {}",
+            width(45),
+            width(255)
+        );
+        assert!(
+            width(466) < width(255),
+            "end taper {} vs {}",
+            width(466),
+            width(255)
+        );
 
         let (mut d2, id2) = doc();
         let mut light = BrushParams::g_pen(16.0);
@@ -675,7 +835,14 @@ mod tests {
     fn undo_restores_pre_stroke_tiles() {
         let (mut d, id) = doc();
         let mut h = ink_core::History::default();
-        let e = line(&mut d, id, BrushParams::g_pen(10.0), (10.0, 10.0), (400.0, 300.0), 1.0);
+        let e = line(
+            &mut d,
+            id,
+            BrushParams::g_pen(10.0),
+            (10.0, 10.0),
+            (400.0, 300.0),
+            1.0,
+        );
         h.push(e);
         assert!(d.layer(id).unwrap().raster.tile_count() > 0);
         h.undo(&mut d);
@@ -690,8 +857,42 @@ mod tests {
         p.taper_end = 0.0;
         line(&mut d, id, p, (20.0, 50.0), (300.0, 50.0), 1.0);
         assert!(d.layer(id).unwrap().raster.get(150, 50).a() == 255);
-        line(&mut d, id, BrushParams::eraser(40.0), (150.0, 0.0), (150.0, 120.0), 1.0);
+        line(
+            &mut d,
+            id,
+            BrushParams::eraser(40.0),
+            (150.0, 0.0),
+            (150.0, 120.0),
+            1.0,
+        );
         assert_eq!(d.layer(id).unwrap().raster.get(150, 50).a(), 0);
+    }
+
+    #[test]
+    fn mirrors_draw_copies_in_one_stroke() {
+        let (mut d, id) = doc();
+        let mut p = BrushParams::g_pen(8.0);
+        p.taper_start = 0.0;
+        p.taper_end = 0.0;
+        let mut s = Stroke::begin(&d, id, p, Rgba::BLACK);
+        // Mirror across x = 256.
+        s.set_mirrors(vec![[-1.0, 0.0, 512.0, 0.0, 1.0, 0.0]]);
+        for i in 0..=40 {
+            s.add(&mut d, Sample::new(40.0 + i as f32 * 4.0, 100.0, 1.0));
+        }
+        let e = s.end(&mut d);
+        let r = &d.layer(id).unwrap().raster;
+        assert_eq!(r.get(120, 100).a(), 255);
+        assert_eq!(r.get(512 - 120, 100).a(), 255, "mirrored copy");
+        assert_eq!(r.get(256, 100).a(), 0);
+        let mut h = ink_core::History::default();
+        h.push(e);
+        h.undo(&mut d);
+        assert_eq!(
+            d.layer(id).unwrap().raster.get(512 - 120, 100).a(),
+            0,
+            "one undo removes both"
+        );
     }
 
     #[test]

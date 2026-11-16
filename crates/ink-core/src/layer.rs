@@ -1,6 +1,6 @@
-use crate::blend::BlendMode;
-use crate::tile::{split, Tile, TileKey, TILE};
 use crate::Rgba;
+use crate::blend::BlendMode;
+use crate::tile::{TILE, Tile, TileKey, split};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -21,7 +21,11 @@ impl Raster {
 
     /// Mutable access, creating an empty tile if needed and un-sharing it if it is shared.
     pub fn tile_mut(&mut self, key: TileKey) -> &mut Tile {
-        Arc::make_mut(self.tiles.entry(key).or_insert_with(|| Arc::new(Tile::empty())))
+        Arc::make_mut(
+            self.tiles
+                .entry(key)
+                .or_insert_with(|| Arc::new(Tile::empty())),
+        )
     }
 
     /// Replace (or remove, with `None`) a tile. Used by undo and by stroke compositing.
@@ -46,7 +50,9 @@ impl Raster {
 
     pub fn get(&self, x: i32, y: i32) -> Rgba {
         let (k, tx, ty) = split(x, y);
-        self.tiles.get(&k).map_or(Rgba::TRANSPARENT, |t| t.get(tx, ty))
+        self.tiles
+            .get(&k)
+            .map_or(Rgba::TRANSPARENT, |t| t.get(tx, ty))
     }
 
     pub fn set(&mut self, x: i32, y: i32, c: Rgba) {
@@ -120,7 +126,10 @@ pub struct Layer {
 
 impl Layer {
     pub fn new(name: impl Into<String>) -> Self {
-        Self { props: LayerProps::named(name), raster: Raster::new() }
+        Self {
+            props: LayerProps::named(name),
+            raster: Raster::new(),
+        }
     }
 }
 
@@ -133,9 +142,15 @@ mod tests {
         let mut a = Raster::new();
         a.set(10, 10, Rgba::BLACK);
         let b = a.clone();
-        assert!(Arc::ptr_eq(a.tile((0, 0)).unwrap(), b.tile((0, 0)).unwrap()));
+        assert!(Arc::ptr_eq(
+            a.tile((0, 0)).unwrap(),
+            b.tile((0, 0)).unwrap()
+        ));
         a.set(11, 10, Rgba::BLACK);
-        assert!(!Arc::ptr_eq(a.tile((0, 0)).unwrap(), b.tile((0, 0)).unwrap()));
+        assert!(!Arc::ptr_eq(
+            a.tile((0, 0)).unwrap(),
+            b.tile((0, 0)).unwrap()
+        ));
         assert_eq!(b.get(11, 10), Rgba::TRANSPARENT);
         assert_eq!(a.get(11, 10), Rgba::BLACK);
     }

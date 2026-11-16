@@ -40,7 +40,10 @@ impl Renderer {
                 self.textures.insert(id, (w, h, px));
             }
             Some([x0, y0]) => {
-                let tex = self.textures.get_mut(&id).expect("partial update of unknown texture");
+                let tex = self
+                    .textures
+                    .get_mut(&id)
+                    .expect("partial update of unknown texture");
                 for y in 0..h {
                     for x in 0..w {
                         tex.2[(y0 + y) * tex.0 + x0 + x] = px[y * w + x];
@@ -51,7 +54,9 @@ impl Renderer {
     }
 
     fn sample(&self, id: TextureId, u: f32, v: f32) -> [f32; 4] {
-        let Some((w, h, px)) = self.textures.get(&id) else { return [1.0; 4] };
+        let Some((w, h, px)) = self.textures.get(&id) else {
+            return [1.0; 4];
+        };
         // Bilinear, clamp to edge.
         let fx = (u * *w as f32 - 0.5).clamp(0.0, *w as f32 - 1.0);
         let fy = (v * *h as f32 - 0.5).clamp(0.0, *h as f32 - 1.0);
@@ -73,38 +78,70 @@ impl Renderer {
     }
 
     /// Rasterize primitives (in points) at `ppp` pixels per point onto a cleared canvas.
-    pub fn render(&self, prims: &[ClippedPrimitive], width: usize, height: usize, ppp: f32, clear: Color32) -> Image {
+    pub fn render(
+        &self,
+        prims: &[ClippedPrimitive],
+        width: usize,
+        height: usize,
+        ppp: f32,
+        clear: Color32,
+    ) -> Image {
         let mut buf: Vec<[f32; 4]> = vec![
-            [clear.r() as f32 / 255.0, clear.g() as f32 / 255.0, clear.b() as f32 / 255.0, clear.a() as f32 / 255.0];
+            [
+                clear.r() as f32 / 255.0,
+                clear.g() as f32 / 255.0,
+                clear.b() as f32 / 255.0,
+                clear.a() as f32 / 255.0
+            ];
             width * height
         ];
         for cp in prims {
-            let Primitive::Mesh(mesh) = &cp.primitive else { continue };
+            let Primitive::Mesh(mesh) = &cp.primitive else {
+                continue;
+            };
             let clip = cp.clip_rect;
             let cx0 = ((clip.min.x * ppp).floor().max(0.0)) as i32;
             let cy0 = ((clip.min.y * ppp).floor().max(0.0)) as i32;
             let cx1 = ((clip.max.x * ppp).ceil() as i32).min(width as i32);
             let cy1 = ((clip.max.y * ppp).ceil() as i32).min(height as i32);
             for tri in mesh.indices.chunks_exact(3) {
-                let v = [&mesh.vertices[tri[0] as usize], &mesh.vertices[tri[1] as usize], &mesh.vertices[tri[2] as usize]];
+                let v = [
+                    &mesh.vertices[tri[0] as usize],
+                    &mesh.vertices[tri[1] as usize],
+                    &mesh.vertices[tri[2] as usize],
+                ];
                 let pts = v.map(|v| (v.pos.x * ppp, v.pos.y * ppp));
-                let area = (pts[1].0 - pts[0].0) * (pts[2].1 - pts[0].1) - (pts[2].0 - pts[0].0) * (pts[1].1 - pts[0].1);
+                let area = (pts[1].0 - pts[0].0) * (pts[2].1 - pts[0].1)
+                    - (pts[2].0 - pts[0].0) * (pts[1].1 - pts[0].1);
                 if area.abs() < 1e-6 {
                     continue;
                 }
-                let minx = (pts.iter().map(|p| p.0).fold(f32::MAX, f32::min).floor() as i32).max(cx0);
-                let maxx = (pts.iter().map(|p| p.0).fold(f32::MIN, f32::max).ceil() as i32).min(cx1);
-                let miny = (pts.iter().map(|p| p.1).fold(f32::MAX, f32::min).floor() as i32).max(cy0);
-                let maxy = (pts.iter().map(|p| p.1).fold(f32::MIN, f32::max).ceil() as i32).min(cy1);
+                let minx =
+                    (pts.iter().map(|p| p.0).fold(f32::MAX, f32::min).floor() as i32).max(cx0);
+                let maxx =
+                    (pts.iter().map(|p| p.0).fold(f32::MIN, f32::max).ceil() as i32).min(cx1);
+                let miny =
+                    (pts.iter().map(|p| p.1).fold(f32::MAX, f32::min).floor() as i32).max(cy0);
+                let maxy =
+                    (pts.iter().map(|p| p.1).fold(f32::MIN, f32::max).ceil() as i32).min(cy1);
                 let cols = v.map(|v| {
                     let c = v.color;
-                    [c.r() as f32 / 255.0, c.g() as f32 / 255.0, c.b() as f32 / 255.0, c.a() as f32 / 255.0]
+                    [
+                        c.r() as f32 / 255.0,
+                        c.g() as f32 / 255.0,
+                        c.b() as f32 / 255.0,
+                        c.a() as f32 / 255.0,
+                    ]
                 });
                 for y in miny..maxy {
                     for x in minx..maxx {
                         let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
-                        let w0 = ((pts[1].0 - px) * (pts[2].1 - py) - (pts[2].0 - px) * (pts[1].1 - py)) / area;
-                        let w1 = ((pts[2].0 - px) * (pts[0].1 - py) - (pts[0].0 - px) * (pts[2].1 - py)) / area;
+                        let w0 = ((pts[1].0 - px) * (pts[2].1 - py)
+                            - (pts[2].0 - px) * (pts[1].1 - py))
+                            / area;
+                        let w1 = ((pts[2].0 - px) * (pts[0].1 - py)
+                            - (pts[0].0 - px) * (pts[2].1 - py))
+                            / area;
                         let w2 = 1.0 - w0 - w1;
                         if w0 < 0.0 || w1 < 0.0 || w2 < 0.0 {
                             continue;
@@ -125,8 +162,15 @@ impl Renderer {
                 }
             }
         }
-        let rgba = buf.iter().flat_map(|c| c.map(|v| (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8)).collect();
-        Image { width, height, rgba }
+        let rgba = buf
+            .iter()
+            .flat_map(|c| c.map(|v| (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8))
+            .collect();
+        Image {
+            width,
+            height,
+            rgba,
+        }
     }
 }
 
@@ -151,6 +195,9 @@ pub fn screenshot(
         r.update_textures(&out.textures_delta);
         last = Some(ctx.tessellate(out.shapes, out.pixels_per_point));
     }
-    let (w, h) = ((size.x * ppp).round() as usize, (size.y * ppp).round() as usize);
+    let (w, h) = (
+        (size.x * ppp).round() as usize,
+        (size.y * ppp).round() as usize,
+    );
     r.render(&last.unwrap(), w, h, ppp, clear)
 }

@@ -6,7 +6,7 @@
 //! and prints the cost per pen sample of every preset (sorted, slowest first).
 
 use ink_core::{Document, Layer, Rgba};
-use ink_raster::presets::{catalog, Category};
+use ink_raster::presets::{Category, catalog};
 use ink_raster::{Sample, Stroke};
 use std::fmt::Write as _;
 use std::time::Instant;
@@ -18,7 +18,9 @@ const HEADER: i32 = 70;
 const MARGIN: i32 = 40;
 
 fn main() {
-    let out = std::env::args().nth(1).unwrap_or_else(|| "replica/brushes.png".into());
+    let out = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "replica/brushes.png".into());
     let presets = catalog();
 
     // Layout: a header row per category, then its presets in a grid.
@@ -30,9 +32,20 @@ fn main() {
         writeln!(labels, "{}\t{}\t{}\t{}", MARGIN, y + 18, 34, cat.name()).unwrap();
         y += HEADER;
         for (i, p) in list.iter().enumerate() {
-            let (cx, cy) = (MARGIN + (i % COLS) as i32 * CELL_W, y + (i / COLS) as i32 * CELL_H);
+            let (cx, cy) = (
+                MARGIN + (i % COLS) as i32 * CELL_W,
+                y + (i / COLS) as i32 * CELL_H,
+            );
             cells.push((cx, cy, *p));
-            writeln!(labels, "{}\t{}\t{}\t{}", cx + 10, cy + CELL_H - 34, 22, p.params.name).unwrap();
+            writeln!(
+                labels,
+                "{}\t{}\t{}\t{}",
+                cx + 10,
+                cy + CELL_H - 34,
+                22,
+                p.params.name
+            )
+            .unwrap();
         }
         y += list.len().div_ceil(COLS) as i32 * CELL_H + 20;
     }
@@ -70,11 +83,18 @@ fn main() {
             stroke.add(&mut doc, s);
         }
         let _ = stroke.end(&mut doc);
-        timings.push((t0.elapsed().as_secs_f64() * 1000.0 / (n + 1) as f64, p.params.name.clone(), p.params.size));
+        timings.push((
+            t0.elapsed().as_secs_f64() * 1000.0 / (n + 1) as f64,
+            p.params.name.clone(),
+            p.params.size,
+        ));
     }
 
     timings.sort_by(|a, b| b.0.total_cmp(&a.0));
-    println!("{} presets. Cost per pen sample (incl. stabilizer, dabs, recomposite):", cells.len());
+    println!(
+        "{} presets. Cost per pen sample (incl. stabilizer, dabs, recomposite):",
+        cells.len()
+    );
     for (ms, name, size) in &timings {
         println!("  {ms:>7.3} ms  {name} ({size} px)");
     }

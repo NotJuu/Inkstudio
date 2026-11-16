@@ -72,7 +72,10 @@ impl Queue {
         }
     }
     pub fn drain(&self) -> Vec<Sample> {
-        self.0.lock().map(|mut q| q.drain(..).collect()).unwrap_or_default()
+        self.0
+            .lock()
+            .map(|mut q| q.drain(..).collect())
+            .unwrap_or_default()
     }
 }
 
@@ -95,23 +98,47 @@ impl Tablet {
         {
             let _ = dh;
             let b = macos::Backend::attach(wh, queue.clone())?;
-            return Some(Tablet { queue, name: "macOS tablet events", drives_pointer: false, _backend: Box::new(b) });
+            return Some(Tablet {
+                queue,
+                name: "macOS tablet events",
+                drives_pointer: false,
+                _backend: Box::new(b),
+            });
         }
         #[cfg(all(unix, not(target_os = "macos")))]
         {
             use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
             match (wh, dh) {
                 (RawWindowHandle::Wayland(w), RawDisplayHandle::Wayland(d)) => {
-                    let b = wayland::Backend::attach(d.display.as_ptr(), w.surface.as_ptr(), queue.clone())?;
-                    return Some(Tablet { queue, name: "Wayland tablet-v2", drives_pointer: true, _backend: Box::new(b) });
+                    let b = wayland::Backend::attach(
+                        d.display.as_ptr(),
+                        w.surface.as_ptr(),
+                        queue.clone(),
+                    )?;
+                    return Some(Tablet {
+                        queue,
+                        name: "Wayland tablet-v2",
+                        drives_pointer: true,
+                        _backend: Box::new(b),
+                    });
                 }
                 (RawWindowHandle::Xlib(w), _) => {
                     let b = x11::Backend::attach(w.window as u32, queue.clone())?;
-                    return Some(Tablet { queue, name: "X11 XInput2", drives_pointer: false, _backend: Box::new(b) });
+                    return Some(Tablet {
+                        queue,
+                        name: "X11 XInput2",
+                        drives_pointer: false,
+                        _backend: Box::new(b),
+                    });
                 }
                 (RawWindowHandle::Xcb(w), _) => {
                     let b = x11::Backend::attach(w.window.get(), queue.clone())?;
-                    return Some(Tablet { queue, name: "X11 XInput2", drives_pointer: false, _backend: Box::new(b) });
+                    return Some(Tablet {
+                        queue,
+                        name: "X11 XInput2",
+                        drives_pointer: false,
+                        _backend: Box::new(b),
+                    });
                 }
                 _ => return None,
             }
@@ -156,7 +183,15 @@ mod tests {
     fn queue_is_bounded_and_ordered() {
         let q = Queue::default();
         for i in 0..9000 {
-            q.push(Sample { phase: Phase::Move, x: i as f32, y: 0.0, units: Units::Logical, pressure: 0.5, tilt: None, eraser: false });
+            q.push(Sample {
+                phase: Phase::Move,
+                x: i as f32,
+                y: 0.0,
+                units: Units::Logical,
+                pressure: 0.5,
+                tilt: None,
+                eraser: false,
+            });
         }
         let v = q.drain();
         assert_eq!(v.len(), 8192);

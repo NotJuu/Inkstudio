@@ -40,7 +40,11 @@ impl Pt {
 pub fn closest_on_segment(p: Pt, a: Pt, b: Pt) -> (Pt, f32) {
     let ab = b.sub(a);
     let l2 = ab.dot(ab);
-    let t = if l2 > 0.0 { (p.sub(a).dot(ab) / l2).clamp(0.0, 1.0) } else { 0.0 };
+    let t = if l2 > 0.0 {
+        (p.sub(a).dot(ab) / l2).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
     (a.lerp(b, t), t)
 }
 
@@ -73,19 +77,36 @@ impl Affine {
 
     pub fn apply(&self, p: Pt) -> Pt {
         let m = self.0;
-        Pt::new(m[0] * p.x + m[1] * p.y + m[2], m[3] * p.x + m[4] * p.y + m[5])
+        Pt::new(
+            m[0] * p.x + m[1] * p.y + m[2],
+            m[3] * p.x + m[4] * p.y + m[5],
+        )
     }
 
     /// Rotation by `angle` around `c`.
     pub fn rotate_about(c: Pt, angle: f32) -> Affine {
         let (s, co) = angle.sin_cos();
-        Affine([co, -s, c.x - co * c.x + s * c.y, s, co, c.y - s * c.x - co * c.y])
+        Affine([
+            co,
+            -s,
+            c.x - co * c.x + s * c.y,
+            s,
+            co,
+            c.y - s * c.x - co * c.y,
+        ])
     }
 
     /// Mirror across the line through `c` at `angle`.
     pub fn mirror_about(c: Pt, angle: f32) -> Affine {
         let (s, co) = (2.0 * angle).sin_cos();
         // Reflection matrix [[cos2a, sin2a], [sin2a, -cos2a]] around c.
-        Affine([co, s, c.x - co * c.x - s * c.y, s, -co, c.y - s * c.x + co * c.y])
+        Affine([
+            co,
+            s,
+            c.x - co * c.x - s * c.y,
+            s,
+            -co,
+            c.y - s * c.x + co * c.y,
+        ])
     }
 }

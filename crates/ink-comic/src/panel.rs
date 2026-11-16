@@ -87,7 +87,13 @@ pub struct PanelSet {
 
 impl Default for PanelSet {
     fn default() -> Self {
-        Self { panels: Vec::new(), border: 12.0, gutter: (100.0, 50.0), color: Rgba::BLACK, next_id: 0 }
+        Self {
+            panels: Vec::new(),
+            border: 12.0,
+            gutter: (100.0, 50.0),
+            color: Rgba::BLACK,
+            next_id: 0,
+        }
     }
 }
 
@@ -113,7 +119,11 @@ impl PanelSet {
     /// Gutter defaults scaled to the page DPI (≈ 4 mm / 2 mm, border ≈ 0.5 mm).
     pub fn for_dpi(dpi: u32) -> Self {
         let mm = dpi as f32 / 25.4;
-        Self { border: (0.5 * mm).max(1.0), gutter: (4.0 * mm, 2.0 * mm), ..Self::default() }
+        Self {
+            border: (0.5 * mm).max(1.0),
+            gutter: (4.0 * mm, 2.0 * mm),
+            ..Self::default()
+        }
     }
 
     fn id(&mut self) -> u64 {
@@ -122,9 +132,15 @@ impl PanelSet {
     }
 
     pub fn add_rect(&mut self, a: Pt, b: Pt) -> u64 {
-        let (lo, hi) = (Pt::new(a.x.min(b.x), a.y.min(b.y)), Pt::new(a.x.max(b.x), a.y.max(b.y)));
+        let (lo, hi) = (
+            Pt::new(a.x.min(b.x), a.y.min(b.y)),
+            Pt::new(a.x.max(b.x), a.y.max(b.y)),
+        );
         let id = self.id();
-        self.panels.push(Panel { id, poly: vec![lo, Pt::new(hi.x, lo.y), hi, Pt::new(lo.x, hi.y)] });
+        self.panels.push(Panel {
+            id,
+            poly: vec![lo, Pt::new(hi.x, lo.y), hi, Pt::new(lo.x, hi.y)],
+        });
         id
     }
 
@@ -135,14 +151,20 @@ impl PanelSet {
     /// Split panel `idx` along the line through a and b, leaving a gutter between the halves.
     /// Mostly-horizontal cuts use the horizontal gutter, mostly-vertical cuts the vertical one.
     pub fn divide(&mut self, idx: usize, a: Pt, b: Pt) -> bool {
-        let Some(panel) = self.panels.get(idx).cloned() else { return false };
+        let Some(panel) = self.panels.get(idx).cloned() else {
+            return false;
+        };
         let d = b.sub(a);
         let len = d.len();
         if len < 1.0 {
             return false;
         }
         let horizontal = d.x.abs() >= d.y.abs();
-        let g = if horizontal { self.gutter.0 } else { self.gutter.1 } / 2.0;
+        let g = if horizontal {
+            self.gutter.0
+        } else {
+            self.gutter.1
+        } / 2.0;
         let side = |p: Pt| d.cross(p.sub(a)) / len;
         let left = clip_half(&panel.poly, |p| side(p) - g);
         let right = clip_half(&panel.poly, |p| -side(p) - g);
@@ -150,7 +172,19 @@ impl PanelSet {
             return false;
         }
         let (id1, id2) = (self.id(), self.id());
-        self.panels.splice(idx..=idx, [Panel { id: id1, poly: left }, Panel { id: id2, poly: right }]);
+        self.panels.splice(
+            idx..=idx,
+            [
+                Panel {
+                    id: id1,
+                    poly: left,
+                },
+                Panel {
+                    id: id2,
+                    poly: right,
+                },
+            ],
+        );
         true
     }
 
@@ -161,7 +195,9 @@ impl PanelSet {
         let (w, h) = (hi.x - lo.x, hi.y - lo.y);
         let hsplit = |s: &mut Self, frac: f32| {
             let y = lo.y + h * frac;
-            let i = s.hit(Pt::new(lo.x + w * 0.5, y - s.gutter.0)).or_else(|| s.hit(Pt::new(lo.x + 1.0, y - s.gutter.0)));
+            let i = s
+                .hit(Pt::new(lo.x + w * 0.5, y - s.gutter.0))
+                .or_else(|| s.hit(Pt::new(lo.x + 1.0, y - s.gutter.0)));
             if let Some(i) = i {
                 s.divide(i, Pt::new(lo.x - 10.0, y), Pt::new(hi.x + 10.0, y));
             }
@@ -223,12 +259,19 @@ mod tests {
 
     #[test]
     fn divide_leaves_gutter() {
-        let mut s = PanelSet { gutter: (40.0, 20.0), ..Default::default() };
+        let mut s = PanelSet {
+            gutter: (40.0, 20.0),
+            ..Default::default()
+        };
         s.add_rect(Pt::new(0.0, 0.0), Pt::new(400.0, 600.0));
         assert!(s.divide(0, Pt::new(-10.0, 300.0), Pt::new(410.0, 300.0)));
         assert_eq!(s.panels.len(), 2);
         let (a, b) = (s.panels[0].bounds(), s.panels[1].bounds());
-        let gap = if a.0.y < b.0.y { b.0.y - a.1.y } else { a.0.y - b.1.y };
+        let gap = if a.0.y < b.0.y {
+            b.0.y - a.1.y
+        } else {
+            a.0.y - b.1.y
+        };
         assert!((gap - 40.0).abs() < 0.01, "gap {gap}");
         // Diagonal cut also works.
         let top = s.hit(Pt::new(200.0, 140.0)).unwrap();
@@ -255,7 +298,10 @@ mod tests {
 
     #[test]
     fn hit_and_render() {
-        let mut s = PanelSet { border: 6.0, ..Default::default() };
+        let mut s = PanelSet {
+            border: 6.0,
+            ..Default::default()
+        };
         s.add_rect(Pt::new(10.0, 10.0), Pt::new(200.0, 100.0));
         assert_eq!(s.hit(Pt::new(50.0, 50.0)), Some(0));
         assert_eq!(s.hit(Pt::new(250.0, 50.0)), None);

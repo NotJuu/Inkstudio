@@ -16,9 +16,15 @@ pub fn palette_header(ui: &mut Ui, title: &str) -> bool {
         .show(ui, |ui| {
             ui.set_height(tokens::layout::PALETTE_TAB_H);
             ui.horizontal_centered(|ui| {
-                ui.label(RichText::new(title).text_style(text::body_strong()).color(p.text));
+                ui.label(
+                    RichText::new(title)
+                        .text_style(text::body_strong())
+                        .color(p.text),
+                );
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    menu = ui.add(IconButton::new(icons::DOTS_THREE, format!("{title} menu")).size(20.0)).clicked();
+                    menu = ui
+                        .add(IconButton::new(icons::DOTS_THREE, format!("{title} menu")).size(20.0))
+                        .clicked();
                 });
             });
         });
@@ -59,19 +65,33 @@ pub fn dialog_frame(
             body(ui);
             ui.add_space(tokens::space::S6);
             let footer = egui::vec2(ui.available_width(), tokens::control_h::MD);
-            ui.allocate_ui_with_layout(footer, egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.spacing_mut().item_spacing.x = tokens::space::S4;
-                let ok = ui.add_enabled(ok_enabled, Button::new(ok_label).variant(ButtonVariant::Primary).min_width(80.0));
-                let cancel = ui.add(Button::new(crate::tr("Cancel")).min_width(80.0));
-                if ok.clicked() {
-                    result = DialogResult::Ok;
-                }
-                if cancel.clicked() {
-                    result = DialogResult::Cancel;
-                }
-            });
+            ui.allocate_ui_with_layout(
+                footer,
+                egui::Layout::right_to_left(egui::Align::Center),
+                |ui| {
+                    ui.spacing_mut().item_spacing.x = tokens::space::S4;
+                    let ok = ui.add_enabled(
+                        ok_enabled,
+                        Button::new(ok_label)
+                            .variant(ButtonVariant::Primary)
+                            .min_width(80.0),
+                    );
+                    let cancel = ui.add(Button::new(crate::tr("Cancel")).min_width(80.0));
+                    if ok.clicked() {
+                        result = DialogResult::Ok;
+                    }
+                    if cancel.clicked() {
+                        result = DialogResult::Cancel;
+                    }
+                },
+            );
         });
-    let (enter, esc) = ui.input(|i| (i.key_pressed(egui::Key::Enter), i.key_pressed(egui::Key::Escape)));
+    let (enter, esc) = ui.input(|i| {
+        (
+            i.key_pressed(egui::Key::Enter),
+            i.key_pressed(egui::Key::Escape),
+        )
+    });
     if esc {
         result = DialogResult::Cancel;
     } else if enter && ok_enabled && result == DialogResult::Open {
