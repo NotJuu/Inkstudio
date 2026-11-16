@@ -1,0 +1,16 @@
+[package]
+name = "ink-comic"
+description = "Inkstudio comic objects: panel frames, speech balloons, horizontal and vertical lettering"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+serde.workspace = true
+ink-core.workspace = true
+ink-raster.workspace = true
+ink-vector.workspace = true
+ab_glyph = "0.2"
+
+[dev-dependencies]
+png.workspace = true

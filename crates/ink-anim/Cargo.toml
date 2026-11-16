@@ -1,0 +1,11 @@
+[package]
+name = "ink-anim"
+description = "Inkstudio animation: timeline, cels, onion skin, GIF export"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+serde.workspace = true
+ink-core.workspace = true
+gif = "0.14"

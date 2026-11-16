@@ -1,0 +1,40 @@
+[workspace]
+resolver = "3"
+members = ["crates/ink-core", "crates/ink-raster", "crates/ink-vector", "crates/ink-comic", "crates/ink-anim", "crates/ink-io", "crates/ink-tablet", "crates/ink-ui", "crates/inkstudio"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+version = "0.1.0"
+
+[workspace.dependencies]
+ink-core = { path = "crates/ink-core" }
+ink-raster = { path = "crates/ink-raster" }
+ink-vector = { path = "crates/ink-vector" }
+ink-comic = { path = "crates/ink-comic" }
+ink-anim = { path = "crates/ink-anim" }
+ink-ui = { path = "crates/ink-ui" }
+ink-io = { path = "crates/ink-io" }
+ink-tablet = { path = "crates/ink-tablet" }
+egui = { version = "0.36", default-features = false, features = ["default_fonts"] }
+egui-phosphor = "0.14"
+png = "0.18"
+rayon = "1.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Pixel loops must be fast even in debug builds used during development.
+[profile.dev.package.ink-core]
+opt-level = 3
+[profile.dev.package.ink-raster]
+opt-level = 3
+[profile.dev.package.ink-vector]
+opt-level = 3
+[profile.dev.package.ink-comic]
+opt-level = 3
+[profile.dev.package.ink-anim]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

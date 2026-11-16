@@ -1,0 +1,15 @@
+[package]
+name = "ink-vector"
+description = "Inkstudio vector strokes, vector eraser and rulers"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+serde.workspace = true
+ink-core.workspace = true
+ink-raster.workspace = true
+
+[dev-dependencies]
+png.workspace = true
+rayon.workspace = true
