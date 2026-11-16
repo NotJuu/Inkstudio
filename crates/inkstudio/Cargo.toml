@@ -1,0 +1,28 @@
+[package]
+name = "inkstudio"
+description = "Inkstudio: drawing app for manga and comics"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "inkstudio"
+path = "src/main.rs"
+
+[dependencies]
+ink-core.workspace = true
+ink-raster.workspace = true
+ink-vector.workspace = true
+ink-comic.workspace = true
+ink-anim.workspace = true
+ink-ui.workspace = true
+egui.workspace = true
+eframe = { version = "0.36", default-features = false, features = ["default_fonts", "wgpu", "wayland", "x11", "accesskit"] }
+png.workspace = true
+rayon.workspace = true
+rfd = { version = "0.15", optional = true }
+
+[features]
+default = []
+# Native file dialogs (needs GTK on Linux).
+dialogs = ["dep:rfd"]

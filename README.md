@@ -2,7 +2,7 @@
 
 A native desktop drawing app for manga and comic artists, written in Rust. It is built for fast inking, real print output (screentones, 1-bit, bleed/trim) and large pages that stay smooth.
 
-> Status: **engine first.** The drawing engine works and is tested. The app window (winit + wgpu + egui) is next. See `replica/` for the plan.
+> Status: **early but usable.** The app window, drawing engine, panels, balloons, multi-page books and animation work and are tested. There is no project file yet (`.inks` save/open is next). See `replica/` for the plan.
 
 ![Showcase page](replica/showcase.png)
 
@@ -10,6 +10,27 @@ A native desktop drawing app for manga and comic artists, written in Rust. It is
 - *Panel 1: focus lines with the focus ruler.*
 - *Panel 2: a building on a two-point perspective ruler, a gap-closing fill that refers to the line art, and a 60 lpi screentone clipped to it.*
 - *Panel 3: a vector cross-hatch cleaned with "erase up to intersection".*
+
+## The app
+
+```sh
+cargo run --release -p inkstudio
+```
+
+| | |
+| --- | --- |
+| ![New sheet](replica/app/1-new-sheet.png) | ![Balloon tool](replica/app/2-manga-page-balloon-tool.png) |
+| **New sheet**: illustration, manga page, multi-page book, webtoon or animation. Paper formats (B5/B4 JIS, A4/A5, B6, US comic, Letter, webtoon, HD…) or a custom size in mm/px/in, DPI, bleed, safe area, color mode, paper, pages and binding, panel template, fps and length, with a live preview. | **Balloon tool**: pick from 10 styles (speech, rounded, box, thought, shout, whisper, wavy, narration, electronic, text only). Click to place, type the text (vertical 縦 or horizontal), then drag the body, the tail tip or the corners. Tail: pointed, curved, bubbles or none. Auto-fit to text. |
+| ![Book](replica/app/4-book-pages.png) | ![Animation](replica/app/5-animation-onion-skin.png) |
+| **Multi-page books**: page strip in reading order (right-to-left for manga), add, delete and reorder pages, export all pages. | **Animation**: timeline with cels, holds and blanks, onion skin, playback at any fps, loop, GIF export. |
+
+- **Pen input.** Every pen sample of a frame is used, not just one per frame. Real pen pressure works on Windows (Windows Ink via winit). On macOS and Linux, winit 0.30 does not deliver tablet pressure, so pens act like a mouse; *View → Simulate pressure for mouse* derives pressure from speed. Native tablet backends for macOS and Linux are planned.
+- **Canvas.** GPU tiles with 4 levels of detail: only visible tiles are uploaded, and only changed tiles are refreshed. Wheel/pinch zoom at the cursor, Space or middle-drag to pan.
+- **Tools.** 54 brushes and erasers, fill (refer to line art, close gaps), panel frames (draw, divide with gutter, 7 templates), balloons and text, hand.
+- **Layers.** Blend modes, opacity, clipping, alpha lock, reference and draft layers, add/delete/reorder. Everything is undoable, including panel and balloon edits.
+- **Export.** PNG per page in color, grayscale or true 1-bit, and animated GIF.
+
+`cargo run --release -p inkstudio --example drive` drives the real UI headless. It draws with synthetic pen events (pressure), places balloons with mouse clicks, types Japanese text with key events, drags a tail, builds a book and an animation, exports, and writes the screenshots above.
 
 ## What makes it a manga tool
 
@@ -25,7 +46,12 @@ A native desktop drawing app for manga and comic artists, written in Rust. It is
 | Layers: blend modes, opacity, clipping, alpha lock, reference and draft layers, copy-on-write undo | `ink-core` | engine ✔ |
 | **54 brushes**, manga first: ink pens, pencils, paint, airbrush, erasers, manga effects, decoration, tone pens | `ink-raster::presets` | engine ✔ |
 | Brush engine options: tip shapes (round, flat/chisel, square, star, heart, flower, ring, multi-line), paper grain, scatter, speed → size, follow stroke direction, dashes, paint-with-screentone | `ink-raster::{brush, tip}` | engine ✔ |
-| Panels, balloons, vertical text, multi-page books, animation timeline, 3D mannequin, material packs | `replica/architecture.md` | planned |
+| Panel frames: draw, divide with gutters, templates (1, 2, 3 rows, 4-koma, 2×2, 2×3, 5-panel) | `ink-comic::panel` | app ✔ |
+| Speech balloons: 10 styles, pointed/curved/bubble tails merged cleanly with the body | `ink-comic::balloon` | app ✔ |
+| Lettering: vertical Japanese (columns right-to-left, rotated ー〜…, 。、 placement, small kana) and horizontal, font fallback | `ink-comic::text` | app ✔ |
+| Multi-page books with binding direction | `inkstudio::book` | app ✔ |
+| Animation: cels, holds, blanks, onion skin, playback, GIF | `ink-anim` | app ✔ |
+| Project files (.inks), 3D mannequin, material packs, rulers in the UI | `replica/architecture.md` | planned |
 
 ## Brushes
 
@@ -74,7 +100,10 @@ crates/
   ink-core     tiles, layers, blend modes, compositing, undo
   ink-raster   brushes + stabilizer, fill, screentones
   ink-vector   vector strokes + eraser, rulers
+  ink-comic    panel frames, speech balloons, horizontal/vertical lettering
+  ink-anim     timeline, cels, onion skin, GIF export
   ink-ui       design tokens, theme and egui widgets (see replica/design)
+  inkstudio    the app: window, canvas, pen input, tools, palettes, dialogs
 replica/       recon, architecture, schema, design system, feature matrix
 ```
 

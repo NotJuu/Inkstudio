@@ -103,6 +103,8 @@ fn font_dirs() -> Vec<PathBuf> {
         "/usr/share/fonts/truetype/inter",
         "/usr/share/fonts/truetype/jetbrains-mono",
         "/usr/share/fonts/opentype/noto",
+        "/usr/share/fonts/truetype/wqy",
+        "/System/Library/Fonts",
         "/Library/Fonts",
         "C:\\Windows\\Fonts",
     ] {
@@ -132,7 +134,10 @@ fn font_definitions(dirs: &[PathBuf]) -> FontDefinitions {
     let medium_ok = add("inter-medium", &["Inter-Medium.otf", "Inter-Medium.ttf"]);
     let semibold_ok = add("inter-semibold", &["Inter-SemiBold.otf", "Inter-SemiBold.ttf"]);
     let mono = add("jetbrains-mono", &["JetBrainsMono-Regular.ttf"]);
-    let cjk = add("noto-cjk", &["NotoSansCJK-Regular.ttc", "NotoSansCJKjp-Regular.otf", "NotoSansJP-Regular.otf"]);
+    let cjk = add(
+        "noto-cjk",
+        &["NotoSansJP-Regular.otf", "NotoSansCJK-Regular.ttc", "NotoSansCJKjp-Regular.otf", "YuGothM.ttc", "meiryo.ttc", "msgothic.ttc", "ヒラギノ角ゴシック W3.ttc", "Hiragino Sans GB.ttc", "wqy-zenhei.ttc", "wqy-microhei.ttc"],
+    );
     egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
     // egui's built-in fonts stay last in each list as a fallback.
